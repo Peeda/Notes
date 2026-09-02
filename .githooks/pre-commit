@@ -1,0 +1,52 @@
+#!/bin/sh
+# Recompile notes.typ -> notes.pdf for every staged .typ file and include the
+# PDFs in the commit. Enabled via: git config core.hooksPath .githooks
+set -e
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+# Staged .typ files, split by status so deletions are handled separately.
+added=$(git diff --cached --name-only --diff-filter=ACMR -z -- '*.typ' | tr '\0' '\n')
+deleted=$(git diff --cached --name-only --diff-filter=D -z -- '*.typ' | tr '\0' '\n')
+
+[ -z "$added$deleted" ] && exit 0
+
+if [ -n "$added" ] && ! command -v typst >/dev/null 2>&1; then
+	echo "pre-commit: typst not found in PATH; cannot compile:" >&2
+	echo "$added" | sed 's/^/  /' >&2
+	echo "Install it (e.g. 'nix profile install nixpkgs#typst') or commit with --no-verify." >&2
+	exit 1
+fi
+
+status=0
+
+# Drop PDFs whose source was deleted.
+while IFS= read -r typ; do
+	[ -n "$typ" ] || continue
+	pdf="${typ%.typ}.pdf"
+	if git ls-files --error-unmatch "$pdf" >/dev/null 2>&1; then
+		echo "pre-commit: removing $pdf (source deleted)"
+		git rm --quiet --cached -- "$pdf"
+		rm -f "$pdf"
+	fi
+done <<DELETED
+$deleted
+DELETED
+
+while IFS= read -r typ; do
+	[ -n "$typ" ] || continue
+	[ -f "$typ" ] || continue
+	pdf="${typ%.typ}.pdf"
+	echo "pre-commit: typst compile $typ"
+	if typst compile --root "$repo_root" "$typ" "$pdf"; then
+		git add -- "$pdf"
+	else
+		echo "pre-commit: failed to compile $typ" >&2
+		status=1
+	fi
+done <<ADDED
+$added
+ADDED
+
+exit $status
