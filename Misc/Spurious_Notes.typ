@@ -151,8 +151,8 @@ as desired.
     A = min({plus.minus bw^top bold(mu)_1, plus.minus bw^top bold(mu)_2}), " "
     B = min({plus.minus bw^top bold(mu)_1, plus.minus bw^top bold(mu)_2} without A) \
     epsilon_bw = cases(
-    Pr_bxi [bw^top bxi - w_"sp" in [A,B] ] - Pr_bxi [bw^top bxi + w_"sp" in [A,B] ] "if" sgn(w_1) = sgn(w_2),
-    Pr_bxi [bw^top bxi + w_"sp" in [A,B]] - Pr_bxi [bw^top bxi - w_"sp" in [A,B] ] "if" sgn(w_1) != sgn(w_2)) $
+    Pr_bxi [bw^top bxi - wsps in [A,B] ] - Pr_bxi [bw^top bxi + wsps in [A,B] ] "if" sgn(w_1) = sgn(w_2),
+    Pr_bxi [bw^top bxi + wsps in [A,B]] - Pr_bxi [bw^top bxi - wsps in [A,B] ] "if" sgn(w_1) != sgn(w_2)) $
 ] <lemma-l0-sp>
 #proof[of @lemma-l0-sp][
   Begin as before using that $grad_bw L_0 = EE_x [-y(z) a sigma'(bw^top bx) bx]$ to get
@@ -250,8 +250,8 @@ as desired.
 #lemma[$L_0$ gradient along perp][
   For any neuron $(a,bw)$ we have
   $ -bw_perp^top grad_bw L_0 = 1/8 abs(a) EE[abs(bw^top bxi) ( \
-    bb(1) [abs(bw^top bxi) >= abs(sqrt(2) norm(wsig) + wsp) ] +  bb(1) [abs(bw^top bxi) >= abs(sqrt(2) norm(wsig) - wsp) ] \
-    bb(1) [abs(bw^top bxi) >= abs(sqrt(2) norm(wopp) + wsp) ] + bb(1) [abs(bw^top bxi) >= abs(sqrt(2) norm(wopp) - wsp) ]
+    bb(1) [abs(bw^top bxi) >= abs(sqrt(2) norm(wsig) + wsps) ] +  bb(1) [abs(bw^top bxi) >= abs(sqrt(2) norm(wsig) - wsps) ] \
+    bb(1) [abs(bw^top bxi) >= abs(sqrt(2) norm(wopp) + wsps) ] + bb(1) [abs(bw^top bxi) >= abs(sqrt(2) norm(wopp) - wsps) ]
   )] $
 ] <lemma-l0-perp>
 #proof[of @lemma-l0-perp][
@@ -265,17 +265,17 @@ as desired.
   $ = 1/2 a EE[y(z) abs(bw_perp^top bxi) bb(1) [abs(bw_perp^top bxi) >= abs(bw^top bz + bw^top bs)] ] $
   unlike the proof of @lemma-l0-sig we're not doing any conditioning on whether $wsig||bz$ so we just expand here over $(bz,bs)$, grouping $1-lambda$ terms and $lambda$ terms that have the same value because of absolute values to get
   $ = 1/8 a EE[&abs(bw_perp^top bxi) (\
-    & bb(1) [abs(bw^top bxi) >= abs(bw^top bold(mu_1) + wsp)] \
-    + & bb(1) [abs(bw^top bxi) >= abs(bw^top bold(mu_1) - wsp)] \
-    - & bb(1) [abs(bw^top bxi) >= abs(bw^top bold(mu_2) + wsp)] \
-    - & bb(1) [abs(bw^top bxi) >= abs(bw^top bold(mu_2) - wsp)] \
+    & bb(1) [abs(bw^top bxi) >= abs(bw^top bold(mu_1) + wsps)] \
+    + & bb(1) [abs(bw^top bxi) >= abs(bw^top bold(mu_1) - wsps)] \
+    - & bb(1) [abs(bw^top bxi) >= abs(bw^top bold(mu_2) + wsps)] \
+    - & bb(1) [abs(bw^top bxi) >= abs(bw^top bold(mu_2) - wsps)] \
     )] $
 and if $(bw,a)$ is a positive neuron then $bw^top bold(mu_1) = sqrt(2) norm(wsig)$, and for negative neurons $wsig, wopp$ swap roles (so they get opposite signs). Given that negative neurons have $a < 0$ we can compactly write this as
 $ = 1/8 abs(a) EE[&abs(bw_perp^top bxi) (\
-  & bb(1) [abs(bw^top bxi) >= sqrt(2)norm(wsig) + wsp)] \
-  + & bb(1) [abs(bw^top bxi) >= sqrt(2)norm(wsig) - wsp)] \
-  - & bb(1) [abs(bw^top bxi) >= sqrt(2)norm(wopp) + wsp)] \
-  - & bb(1) [abs(bw^top bxi) >= sqrt(2)norm(wopp) - wsp)] \
+  & bb(1) [abs(bw^top bxi) >= sqrt(2)norm(wsig) + wsps)] \
+  + & bb(1) [abs(bw^top bxi) >= sqrt(2)norm(wsig) - wsps)] \
+  - & bb(1) [abs(bw^top bxi) >= sqrt(2)norm(wopp) + wsps)] \
+  - & bb(1) [abs(bw^top bxi) >= sqrt(2)norm(wopp) - wsps)] \
   )] $
 as desired.
 #todo("why is this expression uglier than the signal direction's expression? Does it say something interesting about how xi and the first two coordinates behave differently?")
@@ -289,8 +289,6 @@ as desired.
     -&Pr_bxi [abs(w_i) >= abs(sqrt(2) norm(wopp) + w_"opp" + bw^top xinoi)] - Pr_bxi [abs(w_i) >= abs(sqrt(2) norm(wopp) - w_"opp" + bw^top xinoi)]
   ] $
 ] <lemma-l0-perp-coord>
-
-#todo("whoops in the above proofs i think i used wsp in bold to mean a scalar")
 
 #proof[of @lemma-l0-perp-coord][
   This proof can be done in the same way as @lemma-l0-perp just applied coordinate wise, although here I will do a slightly different approach that expands over $x_i$, using that $x_i$ is Rademacher for $i > 3$, rather than appealing to symmetry which changes the first few steps. Pretty sure that this works but it's late right now so #todo("check this")
