@@ -1,2 +1,15 @@
-/.DS_Store
-/ACO_Talk/Images/.DS_Store
+.DS_Store
+psets/
+*.pdf
+!typst/**/*.pdf
+.*.typ
+.obsidian/workspace*.json
+.obsidian/plugins/*
+!.obsidian/plugins/build-pdf/
+_pdf/
+# examples (see Writing Workflow.md)
+examples/
+_build/tags/example-course.typ
+
+# Claude Code per-machine settings
+.claude/settings.local.json

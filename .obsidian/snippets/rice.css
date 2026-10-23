@@ -1,0 +1,205 @@
+/* Rice-style vault theme: Catppuccin Mocha (dark) / Latte (light),
+   JetBrains Mono for notes, Inter for the interface, flat surfaces, thin borders.
+   Enabled in .obsidian/appearance.json; toggle under
+   Settings -> Appearance -> CSS snippets. */
+
+/* ---- palette ---------------------------------------------------------- */
+
+body.theme-dark {
+  --ctp-crust: #11111b; --ctp-mantle: #181825; --ctp-base: #1e1e2e;
+  --ctp-surface0: #313244; --ctp-surface1: #45475a; --ctp-overlay: #6c7086;
+  --ctp-subtext: #a6adc8; --ctp-text: #cdd6f4;
+  --ctp-red: #f38ba8; --ctp-peach: #fab387; --ctp-yellow: #f9e2af;
+  --ctp-green: #a6e3a1; --ctp-teal: #94e2d5; --ctp-blue: #89b4fa;
+  --ctp-mauve: #cba6f7; --ctp-lavender: #b4befe;
+  /* callout colors as r, g, b */
+  --rgb-red: 243, 139, 168; --rgb-blue: 137, 180, 250; --rgb-green: 166, 227, 161;
+  --rgb-peach: 250, 179, 135; --rgb-overlay: 108, 112, 134;
+}
+body.theme-light {
+  --ctp-crust: #dce0e8; --ctp-mantle: #e6e9ef; --ctp-base: #eff1f5;
+  --ctp-surface0: #ccd0da; --ctp-surface1: #bcc0cc; --ctp-overlay: #8c8fa1;
+  --ctp-subtext: #6c6f85; --ctp-text: #4c4f69;
+  --ctp-red: #d20f39; --ctp-peach: #fe640b; --ctp-yellow: #df8e1d;
+  --ctp-green: #40a02b; --ctp-teal: #179299; --ctp-blue: #1e66f5;
+  --ctp-mauve: #8839ef; --ctp-lavender: #7287fd;
+  --rgb-red: 210, 15, 57; --rgb-blue: 30, 102, 245; --rgb-green: 64, 160, 43;
+  --rgb-peach: 254, 100, 11; --rgb-overlay: 140, 143, 161;
+}
+
+body.theme-dark, body.theme-light {
+  --font-text-theme: "JetBrains Mono", Menlo, monospace;
+  --font-monospace-theme: "JetBrains Mono", Menlo, monospace;
+  /* interface (sidebar, tabs, menus): Inter, JetBrains Mono's usual partner */
+  --font-interface-theme: "Inter", -apple-system, sans-serif;
+  /* JetBrains Mono Light for text (Obsidian default 400); bold = this + --bold-modifier */
+  --font-weight: 300;
+
+  --background-primary: var(--ctp-base);
+  --background-primary-alt: var(--ctp-mantle);
+  --background-secondary: var(--ctp-mantle);
+  --background-secondary-alt: var(--ctp-crust);
+  --background-modifier-border: var(--ctp-surface0);
+  --background-modifier-hover: var(--ctp-surface0);
+  --titlebar-background: var(--ctp-crust);
+  --titlebar-background-focused: var(--ctp-crust);
+  --tab-container-background: var(--ctp-crust);
+
+  --text-normal: var(--ctp-text);
+  --text-muted: var(--ctp-subtext);
+  --text-faint: var(--ctp-overlay);
+  --text-accent: var(--ctp-mauve);
+  --text-accent-hover: var(--ctp-lavender);
+  --text-selection: color-mix(in srgb, var(--ctp-mauve) 25%, transparent);
+  --interactive-accent: var(--ctp-mauve);
+  --link-color: var(--ctp-blue);
+  --link-external-color: var(--ctp-teal);
+  --code-background: var(--ctp-mantle);
+  --code-normal: var(--ctp-green);
+  --blockquote-border-color: var(--ctp-surface1);
+  --hr-color: var(--ctp-surface1);
+  --bold-color: var(--ctp-peach);
+  --italic-color: var(--ctp-yellow);
+
+  --h1-color: var(--ctp-mauve);
+  --h2-color: var(--ctp-blue);
+  --h3-color: var(--ctp-teal);
+  --h4-color: var(--ctp-green);
+  --h5-color: var(--ctp-yellow);
+  --h6-color: var(--ctp-peach);
+  --h1-size: 1.5em; --h2-size: 1.3em; --h3-size: 1.15em;
+  --h4-size: 1.05em; --h5-size: 1em; --h6-size: 1em;
+
+  --radius-s: 2px; --radius-m: 4px; --radius-l: 6px;
+  --shadow-s: none; --shadow-l: none;
+  --line-height-normal: 1.6;
+  /* about as much text per line as the PDFs (~100 characters) */
+  --file-line-width: 100ch;
+}
+
+/* ---- headings: terminal-style "##" markers in reading view ------------ */
+
+.markdown-rendered :is(h1, h2, h3, h4, h5, h6) { font-weight: 600; }
+.markdown-rendered :is(h1, h2, h3, h4, h5, h6)::before {
+  color: var(--ctp-overlay);
+  font-weight: 400;
+  margin-right: 0.5ch;
+}
+.markdown-rendered h1::before { content: "#"; }
+.markdown-rendered h2::before { content: "##"; }
+.markdown-rendered h3::before { content: "###"; }
+.markdown-rendered h4::before { content: "####"; }
+.markdown-rendered h5::before { content: "#####"; }
+.markdown-rendered h6::before { content: "######"; }
+.markdown-rendered h1 {
+  border-bottom: 1px dashed var(--ctp-surface1);
+  padding-bottom: 0.2em;
+}
+
+/* ---- inline code / code blocks ---------------------------------------- */
+
+.markdown-rendered code { border: 1px solid var(--ctp-surface0); }
+.markdown-rendered pre { border: 1px solid var(--ctp-surface0); }
+
+/* ---- callouts: bordered boxes with a [ type ] tag ----------------------
+   Same environment types as the PDF (_build/envs.typ). */
+
+.callout {
+  border: 1px solid rgba(var(--callout-color), 0.55);
+  border-left-width: 3px;
+  border-radius: var(--radius-m);
+  background: rgba(var(--callout-color), 0.06);
+}
+.callout-title { font-weight: 600; }
+
+.callout[data-callout="theorem"]    { --callout-color: var(--rgb-red);   --callout-icon: lucide-star; }
+.callout[data-callout="lemma"]      { --callout-color: var(--rgb-blue);  --callout-icon: lucide-bookmark; }
+.callout[data-callout="definition"] { --callout-color: var(--rgb-green); --callout-icon: lucide-book-open; }
+.callout[data-callout="problem"]    { --callout-color: var(--rgb-peach); --callout-icon: lucide-pencil; }
+.callout[data-callout="remark"]     { --callout-color: var(--rgb-overlay); --callout-icon: lucide-info; }
+
+/* "[ lemma ] Title": the type tag shows even when the callout has a title */
+.callout:is([data-callout="theorem"], [data-callout="lemma"], [data-callout="definition"],
+            [data-callout="problem"], [data-callout="remark"]) .callout-icon { display: none; }
+.callout:is([data-callout="theorem"], [data-callout="lemma"], [data-callout="definition"],
+            [data-callout="problem"], [data-callout="remark"]) .callout-title-inner::before {
+  color: rgb(var(--callout-color));
+}
+.callout[data-callout="theorem"]    .callout-title-inner::before { content: "[ theorem ] "; }
+.callout[data-callout="lemma"]      .callout-title-inner::before { content: "[ lemma ] "; }
+.callout[data-callout="definition"] .callout-title-inner::before { content: "[ definition ] "; }
+.callout[data-callout="problem"]    .callout-title-inner::before { content: "[ problem ] "; }
+.callout[data-callout="remark"]     .callout-title-inner::before { content: "[ remark ] "; }
+.callout-title-inner { color: var(--text-normal); }
+
+/* proofs: no box, a dim rail, "$ proof" heading and a ∎ at the end */
+.callout:is([data-callout="proof"], [data-callout="solution"]) {
+  --callout-color: var(--rgb-overlay);
+  --callout-icon: lucide-terminal;
+  background: transparent;
+  border: none;
+  border-left: 2px dashed rgba(var(--callout-color), 0.6);
+  border-radius: 0;
+}
+.callout:is([data-callout="proof"], [data-callout="solution"]) .callout-icon { display: none; }
+.callout:is([data-callout="proof"], [data-callout="solution"]) .callout-title-inner {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.callout[data-callout="proof"]    .callout-title-inner::before { content: "$ proof "; color: var(--ctp-green); }
+.callout[data-callout="solution"] .callout-title-inner::before { content: "$ solution "; color: var(--ctp-green); }
+.callout:is([data-callout="proof"], [data-callout="solution"]) .callout-content::after {
+  content: "∎";
+  display: block;
+  text-align: right;
+  color: var(--ctp-overlay);
+}
+
+/* todo callouts: a yellow warning box */
+.callout[data-callout="todo"] { --callout-color: 249, 226, 175; }
+body.theme-light .callout[data-callout="todo"] { --callout-color: 223, 142, 29; }
+
+/* ---- vertical spacing: display math and callouts -----------------------
+   Typst Mate's SVGs carry no padding of their own; the extra space came from
+   Obsidian's MathJax padding, paragraph margins and block-ID lines. */
+
+/* $$ blocks: Typst Mate renders into an mjx-container, so Obsidian's MathJax
+   rule (padding: 1em 0) applies to it in the editor; keep a little */
+.markdown-source-view.mod-cm6 .math-block > mjx-container.typstmate-display,
+.markdown-rendered .math-block > mjx-container.typstmate-display {
+  padding-block: 0.55em;
+  margin-block: 0;
+}
+.typstmate-display > typstmate-svg { display: block; line-height: 0; }
+/* editor: for a $$ block indented under a list item, Obsidian leaves the
+   indent of the opening $$ line behind as an empty line above the equation */
+.markdown-source-view.mod-cm6 .cm-line.HyperMD-list-line-nobullet.HyperMD-math:has(+ .cm-embed-block.math-block) {
+  height: 0;
+  padding-block: 0;
+  overflow: hidden;
+}
+/* reading view: $$ blocks and callouts sit closer to the text around them */
+.markdown-rendered .math-block { margin-block: 0.3em; }
+.markdown-rendered .callout { margin-block: 0.6em; }
+
+/* callouts, both views: less padding inside the box */
+.callout {
+  --callout-padding: 0.45em 0.9em;
+  --callout-title-padding: 0;
+}
+.callout-content { padding-top: 0.15em; }
+.callout-content > :first-child { margin-top: 0; }
+.callout-content > :last-child { margin-bottom: 0; }
+
+/* editor: a `^id` line after a callout or equation, and the blank lines
+   around it, shrink to a thin strip */
+.markdown-source-view.mod-cm6 .cm-line:has(> span.cm-blockid:only-child) {
+  line-height: 1;
+  font-size: var(--font-smallest);
+  padding-block: 0;
+}
+.markdown-source-view.mod-cm6 .cm-line:has(> br:only-child):has(+ .cm-line > span.cm-blockid:only-child),
+.markdown-source-view.mod-cm6 .cm-line:has(> span.cm-blockid:only-child) + .cm-line:has(> br:only-child) {
+  line-height: 0.6;
+}
+

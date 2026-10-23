@@ -1,0 +1,11 @@
+{
+  "theme": "obsidian",
+  "baseFontSize": 15,
+  "interfaceFontFamily": "Inter, -apple-system",
+  "textFontFamily": "JetBrains Mono, Menlo",
+  "monospaceFontFamily": "JetBrains Mono, Menlo",
+  "accentColor": "#cba6f7",
+  "enabledCssSnippets": [
+    "rice"
+  ]
+}

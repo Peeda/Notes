@@ -1,0 +1,9 @@
+{
+  "id": "build-pdf",
+  "name": "Build PDF",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "Builds the PDF for the open note with _build/build-current.sh (its course, or the note itself) and opens it.",
+  "author": "Peter Chen",
+  "isDesktopOnly": true
+}
