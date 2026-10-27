@@ -4,17 +4,20 @@ This folder is an Obsidian vault of math notes. Math is written in **Typst synta
 
 `Writing Workflow.md` is the user-facing guide. Keep it in sync when you change conventions or the build.
 
+**`misc/` at the vault root is off limits.** It holds the user's personal notes. Never open, list, search, read, edit or build anything in it, with any tool (including shell commands like `cat`, `grep`, `find` or `ls`), and leave it out of vault-wide searches and builds. `.claude/settings.json` also denies Claude Code's file tools there. This is the root `misc/` only, not `notes/Misc/`.
+
 ## Layout
 
 | Path | What |
 |---|---|
 | `notes/` | course notes and plain notes (`.md`) |
 | `psets/` | problem sets. **A separate, private git repo**, ignored by the public one |
-| `typst/` | standalone `.typ` documents (talk, bibliography, Spurious Notes), compiled with `typst compile` directly. Their PDFs are tracked |
+| `misc/` | the user's personal notes: never read or touch (see above) |
+| `typst/` | standalone `.typ` documents (talk, bibliography, Spurious Notes, whose content now lives in `notes/Spurious-XOR/`), compiled with `typst compile` directly. Their PDFs are tracked |
 | `_build/` | `build.sh`, `obsidian.lua` (Pandoc filter), `template.typ`, `envs.typ` (ctheorems environments), `macros.typ` (vault-wide macros), `tags/<tag>.typ` (per-course macros) |
-| `_templates/` | Obsidian Templates plugin: Course index, Lecture, Problem set, Problem, Proof |
-| `_pdf/`, `psets/_pdf/` | build output, gitignored |
-| `examples/` | gitignored demo course and pset; `_build/tags/example-course.typ` is gitignored too |
+| `_templates/` | Obsidian Templates plugin: Course index, Lecture, Problem set, Problem, Proof, Book index, Chapter, Paper index, Paper proof |
+| `_pdf/` | all build output, mirroring the vault (psets too, under `_pdf/psets/`), gitignored |
+| `examples/` | gitignored demo course, pset and book; `_build/tags/example-course.typ` is gitignored too |
 | `.obsidian/` | vault config: `snippets/rice.css` (theme and editor spacing fixes) and `plugins/build-pdf/` (the Build PDF command) are tracked; other plugins, including Typst Mate and its settings, are gitignored |
 
 ## Building
@@ -23,16 +26,16 @@ This folder is an Obsidian vault of math notes. Math is written in **Typst synta
 _build/build.sh "notes/Misc/ODE Exam 1 Review.md" psets/MATH4320/HW1.md
 ```
 
-- Output: `_pdf/<same path>.pdf`, or `psets/_pdf/…` for psets. `KEEP_TYP=1` keeps the generated `.<name>.typ` next to the PDF.
+- Output: `_pdf/<same path>.pdf` at the vault root, psets included. `KEEP_TYP=1` keeps the generated `.<name>.typ` next to the PDF.
 - Build everything: `find notes psets examples -name '*.md' -not -path '*/_pdf/*' -print0 | xargs -0 _build/build.sh`.
-- `_build/build-current.sh <note>` builds the note's course if its folder has a `type: course` index (otherwise the note itself) and opens the PDF. Obsidian runs it through the vault-local plugin `.obsidian/plugins/build-pdf/` (command "Build PDF", Cmd+Shift+B), which is tracked in git and adds Homebrew's bin folders to PATH; apps started from the Dock don't have them, so `pandoc`/`typst` would not be found. `NO_OPEN=1` skips opening.
+- `_build/build-current.sh <note>` builds the note's course, book or paper if its folder has a `type: course`, `book` or `paper` index, or, for a note in `Proofs/`, its parent folder has a `type: paper` one (otherwise the note itself), and opens the PDF. Obsidian runs it through the vault-local plugin `.obsidian/plugins/build-pdf/` (command "Build PDF", Cmd+Shift+B), which is tracked in git and adds Homebrew's bin folders to PATH; apps started from the Dock don't have them, so `pandoc`/`typst` would not be found. `NO_OPEN=1` skips opening.
 - `obsidian.lua` runs as passes:
-  1. Expand embeds. A `type: course` index with no embeds includes every sibling note whose name starts with a number, in numeric order. Frontmatter `tags:` becomes `#import "/_build/tags/<tag>.typ"`, and `definitions:` becomes `#let` lines.
-  2. Group open-form proofs.
+  1. Expand embeds. A `type: course` or `type: book` index with no embeds includes every sibling note whose name starts with a number, in numeric order; for a book, the number sets the chapter number (`#counter(heading).update`). A `type: paper` index keeps its body and appends a `# Proofs` appendix: every `Proofs/<number> <name>.md` in the paper's order, under copies of the overview's `# B …` section headings. Each embedded note gets a `<note-…>` label, so a link to a whole note becomes `#link`. An embed of a block (`![](note.md#^id)`) restates that callout in the PDF (a copy without its `^id`s, so labels stay unique), the way course notes put a theorem's box above its proof; other block embeds are dropped. Frontmatter `tags:` becomes `#import "/_build/tags/<tag>.typ"`, and `definitions:` becomes `#let` lines.
+  2. Group open-form proofs, then turn `> [!todo]` callouts into `#todo-box[…] <todo-N>` and record them for the "Open TODOs" table (the `todo-table` template variable, on for papers or with `todo-table: true`).
   3. Turn `^id` block IDs into Typst labels.
   4. Convert math (verbatim), links (to `#ref`/`#link`) and callouts (to ctheorems environments).
 
-  A preprocessing step before Pandoc strips `%% comments %%` and adds the blank lines Pandoc needs before headings and nested callouts.
+  A preprocessing step before Pandoc strips `%% comments %%` and adds the blank lines Pandoc needs before headings and nested callouts. Pandoc reads with `-blank_before_blockquote`, so a callout can start right under a list item or line of text, as in Obsidian.
 
 ## Note conventions
 
@@ -53,7 +56,11 @@ _build/build.sh "notes/Misc/ODE Exam 1 Review.md" psets/MATH4320/HW1.md
 - **Document types** (frontmatter `type:`):
   - `course`: the index note of a course folder. One `NN Topic.md` per lecture, each with the course tag. The PDF has a contents page, a "Lecture N: Title" heading per lecture, and theorems numbered per lecture.
   - `pset`: problems are `> [!problem] <number>` callouts (the title is the number), followed by `*Solution.*`.
+  - `book`: self-study exercises from a book (`title`, `book-author`). Index note plus `NN Chapter.md`, where NN is the book's chapter number. Exercises are `problem` callouts printed as "Exercise <title>" (untitled: chapter.position) in an ochre box, with proof-style solutions; `##` sections are unnumbered and carry the book's numbers in their text.
+  - `paper`: reading notes on a paper (`title`, `paper-author`). An overview note with `#` sections titled as in the paper (`# B $L_0$ Analysis`, `## B.1 …`), results as callouts titled with the paper's number (`> [!lemma] B.1 Title` → "Lemma B.1 (Title)", passed as `number:`), each followed by `→ [Proof](Proofs/….md)`; and `Proofs/<number> <name>.md` notes that start with an Obsidian-only `![](../<overview>.md#^id)` preview, then the proof.
   - anything else: a plain note.
+- **TODOs** are `> [!todo]` callouts only (plain `TODO:` text isn't collected).
+- **Migrating the user's writing** (e.g. from a `.typ` file into notes): keep their prose verbatim, typos and all. Change only syntax; never add your own prose, summaries or corrections. Headings are not prose: in paper notes they follow the paper's own section titles.
 - **Macros:**
   - vault-wide in `_build/macros.typ`;
   - per course in `_build/tags/<tag>.typ`, with `tags: [<tag>]` in every note of the course;
@@ -70,12 +77,22 @@ The user cares about how the PDFs look. Keep changes within this style and check
 
 - **Fonts:** text in New Computer Modern Sans; math stays in the default New Computer Modern Math (the user rejected Sans Math).
 - **Colors:** the Catppuccin palette (and the JetBrains Mono / Inter fonts) belong to Obsidian (`rice.css`) only, never the PDFs. PDFs are black and grays, except the muted environment colors below.
-- **Theorem-like boxes** (`_build/envs.typ`, `boxed()`): a faint tint, a 2.5pt bar on the left, square corners, and the label in the accent color. Each type gets one muted hue: theorem `#4a6a9b`, lemma `#76679e`, definition `#4a8a7c`, problem outside psets `#6f747c`. Don't go back to solid pastel fills.
+- **Theorem-like boxes** (`_build/envs.typ`, `boxed()`): a faint tint, a 2.5pt bar on the left, square corners, and the label in the accent color. Each type gets one muted hue: theorem `#4a6a9b`, lemma `#76679e`, definition `#4a8a7c`, problem outside psets `#6f747c`, book exercise `#9b7a4a`, TODO `#a0584a` (`todo-box` in `template.typ`). Don't go back to solid pastel fills.
 - **Proofs:** italic *Proof*, no bar, ∎ at the end.
 - **Course PDFs** (`template.typ`, `course-style`):
   - title block inside the margins, no full-width band: spaced gray capitals for the course code, a 30pt bold title, a heavy rule over a hairline, author left and date right;
   - then a contents page: bold "Lecture N  Title" entries with their `##` sections beneath;
   - each lecture starts a new page with one heading, "Lecture N: Title".
+- **Book PDFs** (`book-style` and `make-envs(book: true)`):
+  - title block like a course's, with "EXERCISES FROM" in spaced gray capitals, the book title, "by <book-author>" in gray, the rules, and "Solutions by <author>" left, date right;
+  - contents: bold "Chapter N  Title" entries with their sections;
+  - each chapter starts a new page under a small spaced "CHAPTER N", a large bold title and a gray hairline; running header with the italic book title left and "Chapter N · Title" right;
+  - exercises are boxed like the notes' theorems ("Exercise 3.1.1", ochre `#9b7a4a`); solutions read like the notes' proofs: italic *Solution*, no bar, ∎.
+- **Paper PDFs** (`paper-style` and `make-envs(paper: true)`):
+  - title block like a course's, with "NOTES ON" in spaced gray capitals, the paper title, "by <paper-author>" in gray, the rules, author left and date right; under it the "OPEN TODOS" table (page link, where, text; hairline rules);
+  - contents on its own page; sections don't start new pages; running header with the italic paper title;
+  - results boxed like the notes' theorems, numbered with the paper's numbers; the "Proofs" appendix starts a new page, and each proof opens with its statement's box restated, as in course notes.
+- **TODO boxes** (`todo-box` in `template.typ`): boxed like the theorems in muted rust `#a0584a`, with "TODO" in small spaced capitals; the "OPEN TODOS" table uses the same hue for its label, rules and page links.
 - **Pset PDFs** (`pset-style` and `make-envs(pset: true)`):
   - a header with title, course, author and date;
   - each problem is a bold "Problem 3" followed by a gray hairline to the margin, with no box and no color;
@@ -100,6 +117,8 @@ The user cares about how the PDFs look. Keep changes within this style and check
 - **Typst Mate's container:** it renders into an `mjx-container`, so Obsidian's MathJax CSS applies to it. `rice.css` overrides the padding.
 - **Held keys show an accent popup in Obsidian:** that's macOS press-and-hold. The user can turn it off for Obsidian only with `defaults write md.obsidian ApplePressAndHoldEnabled -bool false` and an Obsidian restart.
 - **Case-insensitive filesystem:** macOS treats `Notes` and `notes` as the same name, so a rename that only changes case needs two steps through a temporary name.
+- **Pset/book problem numbers and paper numbers:** these are passed to ctheorems by hand, so ctheorems' own `ref` would print a wrong one. `problemrefs` in `envs.typ` reads the number from an `<env-number>` metadata mark inside each environment instead.
+- **The TODO table comes before the body**, so the build repeats the body's tag imports and `definitions:` above it; otherwise its math can't see the macros.
 - **Leftover markup:** after a change to the build, check the PDFs for markup that slipped through: `pdftotext x.pdf - | grep -E '\$|\[!|#ref|\*Proof|%%|\^[a-z]'`.
 
 ## Git and privacy

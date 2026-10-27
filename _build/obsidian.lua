@@ -3,12 +3,15 @@
 --               frontmatter `tags:`/`definitions:` of every included note
 --               become `#import`/`#let` lines at the top.
 --   1b. proofs: open-form proofs (`*Proof.* ... ∎`) become `> [!proof]`.
+--   1c. todos:  `> [!todo]` callouts become `#todo-box` and are listed for
+--               the "Open TODOs" table (on for papers, `todo-table:` elsewhere).
 --   2. labels:  Obsidian block IDs (`^id` on its own line after a callout,
 --               or right after a `$$` block) become Typst labels.
 --   3. convert: math, links/references, callouts -> environments.
+--   4. todo table: the collected todos go to the template as `todo-table`.
 
 -- Keep in sync with FROM in build.sh
-local FROM = "markdown+wikilinks_title_after_pipe+lists_without_preceding_blankline-latex_macros-raw_tex"
+local FROM = "markdown+wikilinks_title_after_pipe+lists_without_preceding_blankline-blank_before_blockquote-latex_macros-raw_tex"
 local VAULT = pandoc.path.directory(pandoc.path.directory(PANDOC_SCRIPT_FILE))
 local TAGS_DIR = "_build/tags"  -- Typst Mate: Import path = _build
 
@@ -18,9 +21,15 @@ local numbered_envs = { theorem=1, lemma=1, definition=1, problem=1 }
 -- Link text that asks for a numbered reference ("Lemma 2.1") instead of a
 -- plain link with the given text.
 local ref_words = { theorem=1, lemma=1, definition=1, problem=1,
-                    section=1, lecture=1, equation=1, eq=1, ["eq."]=1 }
+                    section=1, lecture=1, chapter=1, exercise=1,
+                    equation=1, eq=1, ["eq."]=1 }
 
 local included = {}   -- absolute path -> true, for every note in this build
+local note_labels = {} -- absolute path -> label placed at the note's start
+local doc_type = "note"
+local todo_on = false
+local todos = {}      -- { id, where = Inlines, text = Inlines }, in order
+local preamble = {}   -- the `#import`/`#let` lines put above the body
 local labels = {}     -- label -> true if it can be #ref'd, false if only linked
 local headings = {}   -- normalized heading text -> identifier
 
@@ -97,8 +106,10 @@ local function rebase(blocks, dir)
     Image = function(el)
       if has_scheme(el.src) then return end
       local path = resolve(dir, url_decode(el.src))
-      -- embeds keep the filesystem path; expand_embeds reads them
-      el.src = path:match("%.md$") and path or "/" .. pandoc.path.make_relative(path, VAULT)
+      -- embeds (whole notes or one block) keep the filesystem path;
+      -- expand_embeds reads them
+      local note = path:match("%.md$") or path:match("%.md#")
+      el.src = note and path or "/" .. pandoc.path.make_relative(path, VAULT)
       return el
     end,
   }
@@ -108,8 +119,9 @@ end
 -- code fences):
 --  * drop Obsidian `%% comments %%` (inline or spanning lines);
 --  * Obsidian starts a heading or a (deeper) quote/callout right after a line
---    of text, where Pandoc would fold it into the paragraph or list item
---    above: insert the blank line Pandoc wants (a bare `>` inside a quote).
+--    of text (or a quote), where Pandoc would fold it into the paragraph,
+--    list item or quote above: insert the blank line Pandoc wants (a bare
+--    `>` inside a quote).
 local function quote_depth(line)
   local markers = line:match("^[> ]*"):gsub(" ", "")
   return #markers
@@ -156,7 +168,7 @@ local function preprocess(src)
         if prev:match("%S") then
           local d, pd = quote_depth(line), quote_depth(prev)
           local prev_text = prev:gsub("^[> ]*", "") ~= ""
-          if d == 0 and pd == 0 and line:match("^#+ ") then
+          if d == 0 and line:match("^#+ ") then
             table.insert(out, "")
           elseif d > pd and prev_text then
             table.insert(out, string.rep(">", pd))
@@ -174,13 +186,94 @@ local function read_note(text)
   return pandoc.read(preprocess(text), FROM, PANDOC_READER_OPTIONS)
 end
 
-local function embed_target(block)
+local function embed_src(block)
   local inl = (block.t == "Para" or block.t == "Plain") and block.content
   if block.t == "Figure" and #block.content == 1 then inl = block.content[1].content end
   if not inl or #inl ~= 1 or inl[1].t ~= "Image" then return nil end
   local src = inl[1].src
-  if has_scheme(src) or not src:match("%.md$") then return nil end
+  if has_scheme(src) then return nil end
   return src
+end
+
+local function embed_target(block)
+  local src = embed_src(block)
+  return src and src:match("%.md$") and src or nil
+end
+
+-- `![](note.md#^id)`: Obsidian shows that one block (a paper's proof note
+-- previews the statement it proves)
+local function partial_embed(block)
+  local src = embed_src(block)
+  return src ~= nil and src:match("%.md#") ~= nil
+end
+
+-- The PDF restates the callout that `![](note.md#^id)` points to, as course
+-- notes put a theorem's box right above its proof; anything else is left
+-- out. The copy keeps its number but drops its `^id`s, so labels stay unique.
+local function restated(src)
+  local path, id = src:match("^(.-%.md)#%^([%w_-]+)$")
+  local text = path and read_file(path)
+  if not text then return nil end
+  local blocks = read_note(text).blocks
+  for i = 2, #blocks do
+    local p = blocks[i]
+    if p.t == "Para" and #p.content == 1 and p.content[1].t == "Str"
+       and p.content[1].text == "^" .. id and blocks[i - 1].t == "BlockQuote" then
+      return rebase(pandoc.Blocks{ blocks[i - 1]:clone() }, pandoc.path.directory(path)):walk {
+        Inlines = function(inl)
+          local out = pandoc.Inlines{}
+          for _, x in ipairs(inl) do
+            if not (x.t == "Str" and x.text:match("^%^[%w_-]+$")) then out:insert(x) end
+          end
+          return out
+        end,
+      }
+    end
+  end
+end
+
+-- the label a link to the whole note (`[Proof](Proofs/B.1 Foo.md)`) points to
+local function note_label(path)
+  local name = pandoc.path.filename(path):gsub("%.md$", ""):lower()
+  local id = "note-" .. (name:gsub("[^%w]+", "-"):gsub("^%-+", ""):gsub("%-+$", ""))
+  note_labels[path] = id
+  labels[id] = false
+  return pandoc.RawBlock("typst", "#metadata(none) <" .. id .. ">")
+end
+
+-- paper numbers ("B.10", "D.2") in reading order: letter, then each number
+local function number_parts(s)
+  local parts = { s:match("^(%a*)") }
+  for n in s:gmatch("%d+") do table.insert(parts, tonumber(n)) end
+  return parts
+end
+
+local function number_less(a, b)
+  local x, y = number_parts(a), number_parts(b)
+  if x[1] ~= y[1] then return x[1] < y[1] end
+  for i = 2, math.max(#x, #y) do
+    local p, q = x[i] or -1, y[i] or -1
+    if p ~= q then return p < q end
+  end
+  return false
+end
+
+-- the overview's own heading for section B (`# B Title`, `# Section B - ...`),
+-- or "Section B: ..." for a `# B. ...` one, or just "Section B"
+local function section_title(blocks, letter)
+  local t = pandoc.Inlines{ pandoc.Str("Section"), pandoc.Space(), pandoc.Str(letter) }
+  for _, b in ipairs(blocks) do
+    local c = b.t == "Header" and b.level == 1 and b.content
+    if c and c[1] and c[1].t == "Str" and (c[1].text == letter or c[1].text == "Section"
+       and c[3] and c[3].t == "Str" and c[3].text:match("^" .. letter .. "%W?$")) then
+      return c:clone()
+    elseif c and c[1] and c[1].t == "Str" and c[1].text == letter .. "." then
+      t[#t] = pandoc.Str(letter .. ":")
+      for i = 2, #c do t:insert(c[i]) end
+      break
+    end
+  end
+  return t
 end
 
 local function expand_embeds(doc)
@@ -201,7 +294,9 @@ local function expand_embeds(doc)
     local out = pandoc.Blocks{}
     for _, b in ipairs(blocks) do
       local src = embed_target(b)
-      if src then
+      if partial_embed(b) then
+        out:extend(restated(embed_src(b)) or {})
+      elseif src then
         -- rebase() already made it absolute
         local path = src
         if stack[path] then error("embed cycle at " .. path) end
@@ -210,6 +305,7 @@ local function expand_embeds(doc)
         collect(text)
         local sub = read_note(text).blocks
         stack[path] = true
+        out:insert(note_label(path))
         out:extend(expand(rebase(sub, pandoc.path.directory(path)), stack))
         stack[path] = nil
       else
@@ -226,11 +322,40 @@ local function expand_embeds(doc)
   local dir = pandoc.path.directory(main)
   local blocks = rebase(read_note(main_src).blocks, dir)
 
-  -- a course index with no embeds of its own includes every note in its
-  -- folder whose name starts with a number (01 Groups.md, 02 ...), in order
+  -- a course or book index with no embeds of its own includes every note in
+  -- its folder whose name starts with a number (01 Groups.md, 02 ...), in order
   local has_embeds = false
   for _, b in ipairs(blocks) do has_embeds = has_embeds or embed_target(b) ~= nil end
-  if fm_items(main_src, "type")[1] == "course" and not has_embeds then
+  local main_type = fm_items(main_src, "type")[1]
+  doc_type = main_type or "note"
+  local todo_fm = fm_items(main_src, "todo-table")[1]
+  todo_on = todo_fm == "true" or (todo_fm == nil and main_type == "paper")
+  if main_type == "paper" and not has_embeds then
+    -- a paper's overview is followed by a "Proofs" appendix: every note in
+    -- Proofs/ named by its paper number (B.1 Foo.md), grouped by section
+    local pdir = dir .. "/Proofs"
+    local ok, names = pcall(pandoc.system.list_directory, pdir)
+    local proofs = {}
+    for _, name in ipairs(ok and names or {}) do
+      local n = name:match("^(%u[%.%d]*)%s.*%.md$")
+      if n then table.insert(proofs, { n = n, name = name }) end
+    end
+    table.sort(proofs, function(a, b) return number_less(a.n, b.n) end)
+    if #proofs > 0 then
+      local overview = blocks:clone()
+      blocks:insert(pandoc.RawBlock("typst", "#pagebreak(weak: true)"))
+      blocks:insert(pandoc.Header(1, "Proofs", pandoc.Attr("proofs")))
+      local letter
+      for _, p in ipairs(proofs) do
+        if p.n:sub(1, 1) ~= letter then
+          letter = p.n:sub(1, 1)
+          blocks:insert(pandoc.Header(2, section_title(overview, letter),
+            pandoc.Attr("proofs-" .. letter:lower())))
+        end
+        blocks:insert(pandoc.Para{ pandoc.Image({}, pdir .. "/" .. p.name) })
+      end
+    end
+  elseif (main_type == "course" or main_type == "book") and not has_embeds then
     local lectures = {}
     for _, name in ipairs(pandoc.system.list_directory(dir)) do
       local n = name:match("^(%d+).*%.md$")
@@ -238,19 +363,26 @@ local function expand_embeds(doc)
     end
     table.sort(lectures, function(a, b) return a[1] < b[1] or (a[1] == b[1] and a[2] < b[2]) end)
     for _, l in ipairs(lectures) do
+      -- a book's chapters keep the book's numbers (05 Modules.md is
+      -- Chapter 5), even when chapters are skipped
+      if main_type == "book" then
+        blocks:insert(pandoc.RawBlock("typst", "#counter(heading).update(" .. (l[1] - 1) .. ")"))
+      end
       blocks:insert(pandoc.Para{ pandoc.Image({}, dir .. "/" .. l[2]) })
     end
   end
   doc.blocks = expand(blocks, { [main] = true })
+  doc.blocks:insert(1, note_label(main))
 
   local head = pandoc.Blocks{}
   for _, t in ipairs(tags) do
     local rel = TAGS_DIR .. "/" .. t:gsub("/", ".") .. ".typ"
     if read_file(VAULT .. "/" .. rel) then
-      head:insert(pandoc.RawBlock("typst", '#import "/' .. rel .. '": *'))
+      table.insert(preamble, '#import "/' .. rel .. '": *')
     end
   end
-  for _, d in ipairs(defs) do head:insert(pandoc.RawBlock("typst", "#let " .. d)) end
+  for _, d in ipairs(defs) do table.insert(preamble, "#let " .. d) end
+  for _, line in ipairs(preamble) do head:insert(pandoc.RawBlock("typst", line)) end
   head:extend(doc.blocks)
   doc.blocks = head
   return doc
@@ -340,6 +472,83 @@ local function group_proofs(doc)
   return doc
 end
 
+-- pass 1c: todos ------------------------------------------------------------
+-- `> [!todo] text` becomes `#todo-box[text] <todo-N>`, wherever it sits (in a
+-- proof, a list item, another callout). Each is recorded with where it is: the
+-- proof it is in ("Proof of Lemma B.1"), else the heading above it.
+
+local function callout_tag(b)
+  local p = b.t == "BlockQuote" and b.content[1]
+  local tag = p and p.t == "Para" and p.content[1]
+  return tag and tag.t == "Str" and tag.text:match("^%[!([%w-]+)%][+-]?$")
+end
+
+-- the inlines of a callout's first line after its `[!kind]` tag
+local function callout_title(b)
+  local t = pandoc.Inlines{}
+  local p = b.content[1].content
+  for i = 2, #p do
+    if p[i].t == "SoftBreak" or p[i].t == "LineBreak" then break end
+    t:insert(p[i])
+  end
+  while t[1] and t[1].t == "Space" do t:remove(1) end
+  return t
+end
+
+local function mark_todos(doc)
+  local where = pandoc.Inlines{}
+  local function walk(blocks)
+    local out = pandoc.Blocks{}
+    for _, b in ipairs(blocks) do
+      local kind = callout_tag(b)
+      kind = kind and kind:lower()
+      if b.t == "Header" then
+        where = b.content:clone()
+        out:insert(b)
+      elseif kind == "todo" then
+        local text = pandoc.Inlines{}
+        local p = b.content[1].content
+        for i = 2, #p do text:insert(p[i]) end
+        while text[1] and (text[1].t == "Space" or text[1].t == "SoftBreak") do text:remove(1) end
+        local id = "todo-" .. (#todos + 1)
+        table.insert(todos, { id = id, where = where:clone(), text = text:clone() })
+        labels[id] = false
+        out:insert(pandoc.RawBlock("typst", "#todo-box["))
+        if #text > 0 then out:insert(pandoc.Para(text)) end
+        for k = 2, #b.content do out:insert(b.content[k]) end
+        out:insert(pandoc.RawBlock("typst", "] <" .. id .. ">"))
+      elseif b.t == "BlockQuote" then
+        local saved = where
+        if kind == "proof" or kind == "solution" then
+          local title = callout_title(b)
+          local name = kind:sub(1, 1):upper() .. kind:sub(2)
+          if #title > 0 then
+            where = pandoc.Inlines{ pandoc.Str(name), pandoc.Space() }
+            where:extend(title)
+          else
+            where = pandoc.Inlines{ pandoc.Str(name), pandoc.Space(), pandoc.Str("in") , pandoc.Space() }
+            where:extend(saved)
+          end
+        end
+        b.content = walk(b.content)
+        where = saved
+        out:insert(b)
+      elseif b.t == "BulletList" or b.t == "OrderedList" then
+        for i, item in ipairs(b.content) do b.content[i] = walk(item) end
+        out:insert(b)
+      elseif b.t == "Div" then
+        b.content = walk(b.content)
+        out:insert(b)
+      else
+        out:insert(b)
+      end
+    end
+    return out
+  end
+  doc.blocks = walk(doc.blocks)
+  return doc
+end
+
 -- pass 2: block IDs -> labels ------------------------------------------------
 
 local LABEL_MARK = "obsidian-label"
@@ -361,21 +570,29 @@ local function attach_labels(doc)
   local numbered_headings = not (heading_numbering
     and pandoc.utils.stringify(heading_numbering) == "none")
   doc = doc:walk {
-    -- `$$ ... $$` followed by `^id` (same paragraph) -> labelled equation;
-    -- a trailing `^id` anywhere else is dropped (Typst can't label a paragraph)
+    -- `$$ ... $$` followed by `^id` (same paragraph, possibly with more
+    -- equations after it) -> labelled equation; a trailing `^id` anywhere
+    -- else is dropped (Typst can't label a paragraph)
     Inlines = function(inl)
-      local last = inl[#inl]
-      local id = last and last.t == "Str" and last.text:match("^%^([%w_-]+)$")
       -- a lone `^id` paragraph is handled by Blocks below
-      if not id or #inl == 1 then return nil end
-      inl:remove(#inl)
-      while #inl > 0 and (inl[#inl].t == "Space" or inl[#inl].t == "SoftBreak") do inl:remove(#inl) end
-      local m = inl[#inl]
-      if m and m.t == "Math" and m.mathtype == "DisplayMath" then
-        inl[#inl] = pandoc.RawInline("typst", "$ " .. m.text .. " $ <" .. id .. ">")
-        labels[id] = true
+      if #inl == 1 then return nil end
+      local out = pandoc.Inlines{}
+      for i, x in ipairs(inl) do
+        local id = x.t == "Str" and x.text:match("^%^([%w_-]+)$")
+        local j = #out
+        while j > 0 and (out[j].t == "Space" or out[j].t == "SoftBreak") do j = j - 1 end
+        local m = out[j]
+        if id and m and m.t == "Math" and m.mathtype == "DisplayMath" then
+          for _ = j + 1, #out do out:remove(#out) end
+          out[j] = pandoc.RawInline("typst", "$ " .. m.text .. " $ <" .. id .. ">")
+          labels[id] = true
+        elseif id and i == #inl then
+          while #out > 0 and (out[#out].t == "Space" or out[#out].t == "SoftBreak") do out:remove(#out) end
+        else
+          out:insert(x)
+        end
       end
-      return inl
+      return out
     end,
     -- `^id` paragraph right after a callout -> label on its environment
     Blocks = function(blocks)
@@ -431,6 +648,12 @@ local function Link(el)
     end
   end
   if path ~= "" and not included[path] then return el.content end
+  if path ~= "" and frag == "" and note_labels[path] then
+    local out = pandoc.Inlines{ pandoc.RawInline("typst", "#link(<" .. note_labels[path] .. ">)[") }
+    out:extend(el.content)
+    out:insert(pandoc.RawInline("typst", "]"))
+    return out
+  end
   local id
   if frag:sub(1, 1) == "^" then id = frag:sub(2)
   elseif frag ~= "" then id = headings[normalize(frag)] end
@@ -470,6 +693,16 @@ local function BlockQuote(el)
     title:insert(p.content[i]); i = i + 1
   end
   for j = i + 1, #p.content do body:insert(p.content[j]) end
+  -- a paper numbers its results by hand: `> [!lemma] B.3 Title` -> "Lemma B.3"
+  local number
+  if doc_type == "paper" and numbered_envs[kind] then
+    while title[1] and title[1].t == "Space" do title:remove(1) end
+    number = title[1] and title[1].t == "Str" and title[1].text:match("^(%u?%.?[%d.]*%d)%.?$")
+    if number then
+      title:remove(1)
+      while title[1] and title[1].t == "Space" do title:remove(1) end
+    end
+  end
   local has_title = pandoc.utils.stringify(title):match("%S")
 
   -- Other callout types (note, tip, warning, ...): plain quote with a bold
@@ -489,10 +722,13 @@ local function BlockQuote(el)
   end
 
   local head = "#" .. kind
+  local args = {}
+  if number then table.insert(args, 'number: "' .. number .. '"') end
   if has_title then
     local t = pandoc.write(pandoc.Pandoc{pandoc.Plain(title)}, "typst")
-    head = head .. "(title: [" .. (t:gsub("^%s+", ""):gsub("%s+$", "")) .. "])"
+    table.insert(args, "title: [" .. (t:gsub("^%s+", ""):gsub("%s+$", "")) .. "]")
   end
+  if #args > 0 then head = head .. "(" .. table.concat(args, ", ") .. ")" end
   head = head .. "["
 
   local out = pandoc.Blocks{}
@@ -513,9 +749,32 @@ local function BlockQuote(el)
   return out
 end
 
+-- pass 4: todo table ---------------------------------------------------------
+-- Rows for `#todo-table` in the template: (label, where, text), converted the
+-- same way as the body. The table comes before the body, so it repeats the
+-- body's imports for its math.
+local function todo_table(doc)
+  if not todo_on or #todos == 0 then return nil end
+  local function typst(inl)
+    local conv = pandoc.Inlines(inl):walk { Math = Math, Link = Link }
+    local t = pandoc.write(pandoc.Pandoc{ pandoc.Plain(conv) }, "typst")
+    return (t:gsub("^%s+", ""):gsub("%s+$", ""))
+  end
+  local rows = {}
+  for _, t in ipairs(todos) do
+    table.insert(rows, "  (<" .. t.id .. ">, [" .. typst(t.where) .. "], [" .. typst(t.text) .. "]),")
+  end
+  doc.meta["todo-table"] = pandoc.MetaBlocks{
+    pandoc.RawBlock("typst", table.concat(preamble, "\n") .. "\n#todo-table((\n"
+      .. table.concat(rows, "\n") .. "\n))") }
+  return doc
+end
+
 return {
   { Pandoc = expand_embeds },
   { Pandoc = group_proofs },
+  { Pandoc = mark_todos },
   { Pandoc = attach_labels },
   { Math = Math, Link = Link, BlockQuote = BlockQuote },
+  { Pandoc = todo_table },
 }

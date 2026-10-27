@@ -1,0 +1,12 @@
+---
+tags: []
+---
+
+# {{title}}
+
+> [!problem] 
+> 
+
+*Solution.* 
+
+∎

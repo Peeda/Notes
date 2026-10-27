@@ -1,9 +1,3 @@
----
-title: Writeup of Multi-SSD Model Ideas
-author: Peter Chen
-date: 2026-09-29
----
-
 # Writeup of Multi-SSD Model Ideas/Thoughts
 
 ## A simplification of how the collections primitives all work

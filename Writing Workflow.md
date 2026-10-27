@@ -4,17 +4,19 @@ title: Writing Workflow
 
 # Writing workflow
 
-The vault holds three kinds of documents:
+The vault holds five kinds of documents:
 
 | Kind | Where | Becomes |
 |---|---|---|
 | **Course notes** | `notes/<Course>/`, one note per lecture plus an index | one PDF for the course, with lectures, theorems, proofs and references |
 | **Problem sets** | `psets/<Course>/HW<n>.md`, one note per assignment | a homework PDF: header, numbered problems, solutions |
+| **Book exercises** | `notes/<Book>/`, one note per chapter plus an index | one PDF of your solutions, chapter by chapter, numbered as in the book |
+| **Paper notes** | `notes/<Paper>/`, an overview note plus `Proofs/`, one note per proof | one PDF: a section-by-section overview with the paper's numbers, then the proofs |
 | **Plain notes** | anywhere under `notes/` | a simple PDF |
 
-Anything that is really a typeset document (a talk, a paper draft, Spurious Notes) stays a `.typ` file in `typst/`, compiled with `typst compile` directly.
+Anything that is really a typeset document (a talk, a paper draft) stays a `.typ` file in `typst/`, compiled with `typst compile` directly.
 
-Working examples of both main kinds live in `examples/`. That folder is ignored by git; copy from it freely.
+Working examples of the main kinds live in `examples/`. That folder is ignored by git; copy from it freely.
 
 ## 1. Making PDFs
 
@@ -33,14 +35,14 @@ find notes -name '*.md' -exec _build/build.sh {} +
 ```
 
 - The second form builds several notes; the third builds every note under `notes/`.
-- **Where PDFs go:** PDFs never land next to your notes. They go to `_pdf/`, mirroring the vault: `notes/MATH 4107/MATH 4107 Notes.md` becomes `_pdf/notes/MATH 4107/MATH 4107 Notes.pdf`. Pset PDFs go to `psets/_pdf/` instead, so they stay inside the private repo. Both folders are ignored by git.
+- **Where PDFs go:** PDFs never land next to your notes. They go to `_pdf/`, mirroring the vault: `notes/MATH 4107/MATH 4107 Notes.md` becomes `_pdf/notes/MATH 4107/MATH 4107 Notes.pdf`, and `psets/MATH4107/HW1.md` becomes `_pdf/psets/MATH4107/HW1.pdf`. `_pdf/` is ignored by git, so pset PDFs never reach the public repo.
 - **Debugging:** run with `KEEP_TYP=1` to keep the generated Typst source as `.<name>.typ` next to the PDF.
 
-**From Obsidian:** press **Cmd+Shift+B**, or run **Build PDF** from the command palette (Cmd+P). It comes from the vault's own small plugin, `.obsidian/plugins/build-pdf/`. It saves the note and runs `_build/build-current.sh` on it, which builds the note's course (for a lecture or course index) or the note itself, and opens the PDF. A notice says when it's done, or shows the error if the build fails. To enable it the first time, go to Settings → Community plugins and turn on "Build PDF". The hotkey can be changed under Settings → Hotkeys.
+**From Obsidian:** press **Cmd+Shift+B**, or run **Build PDF** from the command palette (Cmd+P). It comes from the vault's own small plugin, `.obsidian/plugins/build-pdf/`. It saves the note and runs `_build/build-current.sh` on it, which builds the note's course, book or paper (for a lecture, chapter, proof or index) or the note itself, and opens the PDF. A notice says when it's done, or shows the error if the build fails. To enable it the first time, go to Settings → Community plugins and turn on "Build PDF". The hotkey can be changed under Settings → Hotkeys.
 
 **What happens inside `build.sh`:**
 1. Pandoc reads the note, with `_build/obsidian.lua` translating Obsidian syntax:
-   - embeds are expanded (a course index with none includes its numbered lecture notes);
+   - embeds are expanded (a course or book index with none includes its numbered notes; a paper index adds its `Proofs/` notes);
    - `%% comments %%` are removed;
    - callouts become environments;
    - `^id`s become labels and links become references;
@@ -67,7 +69,8 @@ You need Pandoc 3+ and Typst 0.14+.
   | `problem` | gray box, numbered (see psets) |
   | `remark` | unnumbered |
   | `proof`, `solution` | italic heading, ends with ∎ |
-  | anything else (`note`, `todo`, …) | a quote with a bold title |
+  | `todo` | a rust-tinted "TODO" box, listed in the "Open TODOs" table (papers) |
+  | anything else (`note`, `tip`, …) | a quote with a bold title |
 - **Proofs and solutions are plain text**, so you keep Obsidian's live preview while writing them:
   ```markdown
   *Proof.* First we show …
@@ -83,6 +86,7 @@ You need Pandoc 3+ and Typst 0.14+.
 
     So ∎ is only needed when ordinary text follows. The PDF adds its own.
   - Other callouts such as `> [!todo]` can sit inside a proof.
+- **TODOs:** mark one with a `> [!todo]` callout, anywhere: between paragraphs, inside a proof, or indented under a list item. Plain `TODO:` text is just text. Search the vault for `[!todo]` to find them all; a paper's PDF also lists them on its title page.
 - **Comments:** `%% … %%`, inline or across lines, are left out of the PDF and hidden in Obsidian's reading view. The editor still shows them, dimmed.
 - **No blank lines around `$$` blocks.** Write a display equation directly between the lines of text it belongs to, or indent it under its list item. Every blank line shows as an empty line in Obsidian's editor, and none are needed for the PDF.
 - **Headings and callouts** can follow a list or paragraph directly. A plain line right after a list item continues that item, so leave a blank line to start a new paragraph.
@@ -198,9 +202,78 @@ tags: [math4107]
 - **Solutions:** write them in the open *Solution.* form, so long solutions keep live preview. Parts can be a list (`1.`, `2.`) inside the problem and inside the solution.
 - **PDF layout:** a header with the title, course, author and date, plus a running header with your name and the assignment on later pages. Headings are unnumbered.
 - **Macros:** tag the pset with the course tag to share the course's macros.
-- **Building:** `_build/build.sh psets/MATH4107/HW1.md` writes `psets/_pdf/MATH4107/HW1.pdf`. That folder sits inside the private repo and is ignored there too.
+- **Building:** `_build/build.sh psets/MATH4107/HW1.md` writes `_pdf/psets/MATH4107/HW1.pdf`.
 
 See `examples/problem-set/HW1.md`.
+
+## 4b. Book exercises
+
+For working through a book on your own: laid out and styled like course notes (an index plus one note per chapter, one PDF with a contents page), with each exercise in an ochre box and its solution below it like a proof.
+
+**Layout:** one folder per book, `notes/<Book>/`: an index note, and one note per chapter whose name starts with **the book's chapter number** (`01 Introduction to Groups.md`, `03 Quotient Groups.md`). The number is the chapter number in the PDF, so skipped chapters keep the book's numbering.
+
+**Index note** (template: *Book index*):
+
+```markdown
+---
+type: book
+title: Abstract Algebra
+book-author: Dummit and Foote
+author: Peter Chen
+date: Fall 2026
+tags: [algebra]
+---
+```
+
+**Chapter note** (template: *Chapter*): the tag, one `# Title` heading, then `##` headings for the book's sections, with their numbers in the text (`## 3.1 Definitions and Examples`); section headings get no automatic number.
+
+```markdown
+> [!problem] 3.1.1
+> Let $phi : G -> H$ be a homomorphism and $E <= H$. Prove that …
+
+^ex-preimage
+
+*Solution.* If $a, b in phi^(-1)(E)$ then …
+∎
+```
+
+- **Exercises** are `problem` callouts, printed as "Exercise 3.1.1": the title is the book's number. One with no title gets its place in the chapter (the second exercise of chapter 3 is 3.2).
+- **Unsolved exercises:** leave the solution off; the statement stands alone in the PDF.
+- **References:** `[Exercise](#^ex-preimage)` gives "Exercise 3.1.1". Theorems and definitions you copy from the book are numbered per chapter (3.1, 3.2, …); give them a title such as `Theorem 3.15 in the book` if you want the book's number.
+- **PDF layout:** a title page reading "Exercises from *title*, by *book-author*", a contents page with chapters and their sections, and each chapter on a new page under "CHAPTER 3" and its title. The running header shows the book's title and the current chapter.
+
+See `examples/book-exercises/`.
+
+## 4c. Paper notes
+
+For reading a technical paper: an overview that walks through it section by section, emphasizing intuition and how results connect, with the statements numbered as in the paper, and proofs in separate notes. Everything builds into one PDF.
+
+**Layout:** one folder per paper, `notes/<Paper>/`: the overview (any name, `type: paper`), the paper's PDF, and `Proofs/` with one note per proof, named by the paper's number (`B.1 L0 gradient along signal.md`, `D.10 Spurious inductive step.md`). See `notes/Spurious-XOR/`.
+
+**Overview note** (template: *Paper index*):
+```yaml
+---
+type: paper
+title: SGD Provably Prioritizes a Shortcut Spurious Feature in the XOR Model
+paper-author: Tyler LaBonte, Vidya Muthukumar
+author: Peter Chen
+date: 2026-10-26
+tags: [spurious-xor]
+---
+```
+- One `#` heading per section of the paper, titled as in the paper, number included (`# B $L_0$ Analysis`, `## B.1 $gradient L_0$ Computation`); headings get no automatic number.
+- Under each, intuition as bullets, then the results as callouts whose title starts with the paper's number: `> [!lemma] B.1 $L_0$ gradient along signal` prints "Lemma B.1 ($L_0$ gradient along signal)", and `[Lemma](#^b1)` prints "Lemma B.1". A result with no number in its title is unnumbered.
+- After a result's `^id`, link its proof note: `→ [Proof](Proofs/B.1%20L0%20gradient%20along%20signal.md)`. A link to a whole note jumps to it in the PDF.
+
+**Proof note** (template: *Paper proof*): the tag, then
+```markdown
+![](../Proof%20Overview.md#^b1)
+
+*Proof of [Lemma](../Proof%20Overview.md#^b1).* …  ∎
+```
+The first line shows the statement above the proof in Obsidian, and the PDF restates it there too, in its colored box, as course notes do.
+
+**PDF layout:** a title page reading "Notes on *title*, by *paper-author*" with the "Open TODOs" table (every `> [!todo]`, with its page, where it is and its text), a contents page, the overview, then a "Proofs" appendix: every note in `Proofs/` in the paper's order, under the overview's own section headings ("B $L_0$ Analysis"). Turn the TODO table off with `todo-table: false`, or on for any other note with `todo-table: true`.
 
 ## 5. Templates
 
@@ -212,6 +285,10 @@ Obsidian's Templates plugin reads `_templates/`. Insert one with Cmd+P → "Temp
 | *Lecture* | a new lecture: tag frontmatter plus `# {{title}}` |
 | *Problem set* | a new assignment: `type: pset` frontmatter and a first problem |
 | *Problem* | another problem with its solution |
+| *Book index* | a new book's index note: `type: book` frontmatter |
+| *Chapter* | a book chapter: tag frontmatter, `# {{title}}` and a first exercise |
+| *Paper index* | a paper's overview: `type: paper` frontmatter, a section, a numbered lemma and its proof link |
+| *Paper proof* | a proof note: the statement preview embed and `*Proof of [Lemma](…)*` … `∎` (fix the overview's name and the `^id`) |
 | *Proof* | `*Proof.*` … `∎` |
 
 After inserting one, fill in `course:` and `tags:`, and drop the number prefix from a lecture's heading. A note without the course tag loses the course macros, and Typst Mate shows an unknown-variable error.
@@ -222,11 +299,14 @@ After inserting one, fill in `course:` and `tags:`, and drop the number prefix f
 
 | Key | Values | Default |
 |---|---|---|
-| `type` | `course`, `pset` (anything else is a plain note) | plain note |
+| `type` | `course`, `pset`, `book`, `paper` (anything else is a plain note) | plain note |
 | `title`, `course`, `author`, `date` | text, shown in the PDF header | none |
+| `book-author` | the book's author, on a book's title page | none |
+| `paper-author` | the paper's authors, on a paper's title page | none |
+| `todo-table` | `true` or `false`: the "Open TODOs" table on the first page | `true` for papers, else `false` |
 | `tags` | the course tag(s) whose macros to import | none |
-| `heading-numbering` | a Typst pattern such as `"1.a"`, or `none` | `1.` notes, `1.1` course, `none` pset |
-| `thm-base-level` | `1` (per lecture or section), `2`, …, or `none` (one counter) | `1`; `none` for psets |
+| `heading-numbering` | a Typst pattern such as `"1.a"`, or `none` | `1.` notes, `1.1` course, `none` pset and paper, chapters only for book |
+| `thm-base-level` | `1` (per lecture or section), `2`, …, or `none` (one counter) | `1`; `none` for psets and papers |
 | `definitions` | list of one-off macros, `'name = $…$'` | none |
 
 **Typst Mate settings:**
@@ -241,3 +321,5 @@ After inserting one, fill in `course:` and `tags:`, and drop the number prefix f
 4. Give `^id`s to results you'll cite, and reference them with `[Theorem](…#^id)`.
 5. Problem sets: `psets/<Course>/HW<n>.md` from *Problem set*, with the same tag.
 6. Build the index (and each pset) and look over the PDFs in `_pdf/`.
+
+A book works the same way: *Book index* and *Chapter* instead of *Course index* and *Lecture*, with each chapter note named by the book's chapter number.

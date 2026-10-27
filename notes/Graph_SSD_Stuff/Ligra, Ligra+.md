@@ -1,9 +1,3 @@
----
-title: Graph Reading
-author: Peter Chen
-date: 2026-10-17
----
-
 todos:
 - think about vertex centric algorithms in our setting
 - after reading StreamVByte think about faster decoding
@@ -42,16 +36,3 @@ Main Ideas to remember: push/pull BFS optimization, edge representation compress
   - We then decode on the fly as we process through the graph
 - Big note: you'd think that decoding is just a scan but it's a little more complicated because we don't know where one delta begins and ends (var int encoding) so we actually do it sequentially within a "block" and parallelize between blocks with per block offsetes
 
-## GraphChi
-- We want to do "each vertex has a value" style calculations (so not traversals, more vertex style algs) on a single computer
-- Let's offload the graph data to disk and devise a way to lay out for contiguous block reads
-- We split $[n]$ into $P$ contiguous parts of such that each shard can fit in memory with roughly the same memory footprint (we want one shard and one window to fit, as defined below, in general vertices follow a power law type degree distribution so this isn't balanced in number of vtx)
-- Associate with each part a "shard" which contains all edges $(u,v)$ such that $v$ lives in this part of $[n]$, with shards living on disk
-- The shard's data is sorted by the index of $u$; this means that for a given part we can find all of its edge data if have the current shard in memory (this gives all of the in neighbors) and we sequentially read from the other $P-1$ shards left to right (reading left to right gives all of the first vertex's neighbors, then the second and so on)
-- So assuming our desired algorithm operates with some update function which maps vertices to values, as a function of its in and out neighbors, GraphChi proceeds like:
-  - For each of the $P$ parts, process by doing sequential block reads over the other $P-1$ shards and calling the update function in parallel over vertices whose out neighbors have been read
-  - You don't read the whole other part at a time, just read in blocks, update in parallel, and write back
-  - you send reads to be completed while the compute is still happening (at least I think so, this is async io)
-  - so in general you do $O(P^2)$ IOs which isn't great, I believe you'd expect to be limited by bandwidth here to a far greater extent than in memory algorithms and you're somewhat competitive with distributed systems which have to syncronize after each round
-- Okay so the reason this was huge is that we're optimizing for as few random reads as possible and this layout allows us to only do block reads for certain types of graph algorithms
-  - so think hard drives, minimize number of seeks, although the paper does mention SSDs

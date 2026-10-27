@@ -4,3 +4,6 @@
 // Per-course macros go in _build/tags/<tag>.typ, one-offs in a note's
 // frontmatter `definitions:` list.
 #let inner(a, b) = $lr(chevron.l #a, #b chevron.r)$
+#let poly = math.op("poly")
+#let tv(a, b) = $d_"TV" (#a, #b)$
+#let sgn = math.op("sgn")
