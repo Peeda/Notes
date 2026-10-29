@@ -203,8 +203,9 @@ E.8 - "Equal and opposite" margin condition
 * Roughly speaking $w_"sp"$ is large enough in Phase II scalings so the other terms are negligible
 * You consider $gamma_+, gamma_-$ which are the unnormalized contributions from $S^+, S^-$ and Hoeffding's with $p >> log^5 (d)$ gives multiplicative error $sqrt((log d) slash p)$
 	* In particular $sgn(a)$ is Rademacher so conditioning on the $w_"sp"$ for all $p$ neurons lets you apply Hoeffding's
-> [!todo] Isn't this just with high probability though? The paper seems to read like this is with probability one so I'd guess there's some implicit union bound type thing going on
+> [!question] Isn't this just with high probability though? The paper seems to read like this is with probability one so I'd guess there's some implicit union bound type thing going on
 * Then after appealing to Phase II scalings to bound a certain residual term you consider cases on $x_1,x_2,x_3$ and get the desired result, with minority $bold(x)$ picking up a sign flip
+verli
 * The reason the scaling is like $w_"sp"^2$ is because $abs(a)$ is like $w_"sp"$
 # F Technical Lemmas
 ## F.1 High-probability Events

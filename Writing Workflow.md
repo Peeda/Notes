@@ -4,13 +4,14 @@ title: Writing Workflow
 
 # Writing workflow
 
-The vault holds five kinds of documents:
+The vault holds six kinds of documents:
 
 | Kind | Where | Becomes |
 |---|---|---|
 | **Course notes** | `notes/<Course>/`, one note per lecture plus an index | one PDF for the course, with lectures, theorems, proofs and references |
 | **Problem sets** | `psets/<Course>/HW<n>.md`, one note per assignment | a homework PDF: header, numbered problems, solutions |
 | **Book exercises** | `notes/<Book>/`, one note per chapter plus an index | one PDF of your solutions, chapter by chapter, numbered as in the book |
+| **Research meetings** | `notes/<Project>/`, one note per meeting, named by its date, plus an index | one PDF for the project, a section per meeting ("October 27th meeting") |
 | **Paper notes** | `notes/<Paper>/`, an overview note plus `Proofs/`, one note per proof | one PDF: a section-by-section overview with the paper's numbers, then the proofs |
 | **Plain notes** | anywhere under `notes/` | a simple PDF |
 
@@ -38,11 +39,11 @@ find notes -name '*.md' -exec _build/build.sh {} +
 - **Where PDFs go:** PDFs never land next to your notes. They go to `_pdf/`, mirroring the vault: `notes/MATH 4107/MATH 4107 Notes.md` becomes `_pdf/notes/MATH 4107/MATH 4107 Notes.pdf`, and `psets/MATH4107/HW1.md` becomes `_pdf/psets/MATH4107/HW1.pdf`. `_pdf/` is ignored by git, so pset PDFs never reach the public repo.
 - **Debugging:** run with `KEEP_TYP=1` to keep the generated Typst source as `.<name>.typ` next to the PDF.
 
-**From Obsidian:** press **Cmd+Shift+B**, or run **Build PDF** from the command palette (Cmd+P). It comes from the vault's own small plugin, `.obsidian/plugins/build-pdf/`. It saves the note and runs `_build/build-current.sh` on it, which builds the note's course, book or paper (for a lecture, chapter, proof or index) or the note itself, and opens the PDF. A notice says when it's done, or shows the error if the build fails. To enable it the first time, go to Settings → Community plugins and turn on "Build PDF". The hotkey can be changed under Settings → Hotkeys.
+**From Obsidian:** press **Cmd+Shift+B**, or run **Build PDF** from the command palette (Cmd+P). It comes from the vault's own small plugin, `.obsidian/plugins/build-pdf/`. It saves the note and runs `_build/build-current.sh` on it, which builds the note's course, book, research project or paper (for a lecture, chapter, meeting, proof or index) or the note itself, and opens the PDF. A notice says when it's done, or shows the error if the build fails. To enable it the first time, go to Settings → Community plugins and turn on "Build PDF". The hotkey can be changed under Settings → Hotkeys.
 
 **What happens inside `build.sh`:**
 1. Pandoc reads the note, with `_build/obsidian.lua` translating Obsidian syntax:
-   - embeds are expanded (a course or book index with none includes its numbered notes; a paper index adds its `Proofs/` notes);
+   - embeds are expanded (a course, book or research index with none includes its numbered or dated notes; a paper index adds its `Proofs/` notes);
    - `%% comments %%` are removed;
    - callouts become environments;
    - `^id`s become labels and links become references;
@@ -70,6 +71,7 @@ You need Pandoc 3+ and Typst 0.14+.
   | `remark` | unnumbered |
   | `proof`, `solution` | italic heading, ends with ∎ |
   | `todo` | a rust-tinted "TODO" box, listed in the "Open TODOs" table (papers) |
+  | `question` | an olive-tinted "QUESTION" box, listed in the "Open Questions" table (papers) |
   | anything else (`note`, `tip`, …) | a quote with a bold title |
 - **Proofs and solutions are plain text**, so you keep Obsidian's live preview while writing them:
   ```markdown
@@ -86,7 +88,7 @@ You need Pandoc 3+ and Typst 0.14+.
 
     So ∎ is only needed when ordinary text follows. The PDF adds its own.
   - Other callouts such as `> [!todo]` can sit inside a proof.
-- **TODOs:** mark one with a `> [!todo]` callout, anywhere: between paragraphs, inside a proof, or indented under a list item. Plain `TODO:` text is just text. Search the vault for `[!todo]` to find them all; a paper's PDF also lists them on its title page.
+- **TODOs and questions:** mark one with a `> [!todo]` or `> [!question]` callout, anywhere: between paragraphs, inside a proof, or indented under a list item. Plain `TODO:` text is just text. Search the vault for `[!todo]` or `[!question]` to find them all; a paper's PDF also lists them on its title page, questions first.
 - **Comments:** `%% … %%`, inline or across lines, are left out of the PDF and hidden in Obsidian's reading view. The editor still shows them, dimmed.
 - **No blank lines around `$$` blocks.** Write a display equation directly between the lines of text it belongs to, or indent it under its list item. Every blank line shows as an empty line in Obsidian's editor, and none are needed for the PDF.
 - **Headings and callouts** can follow a list or paragraph directly. A plain line right after a list item continues that item, so leave a blank line to start a new paragraph.
@@ -119,7 +121,8 @@ tags: [math4107]
 
 - **That's the whole index:** create it once and never edit it.
 - **What the build includes:** every note in the folder whose name starts with a number (`01 Groups.md`, `2 Rings.md`, `10 Fields.md`), in numeric order. So a new lecture is part of the course PDF as soon as you create it.
-- **To choose the lectures or their order yourself:** list them as embeds in the index, one per paragraph, with spaces written as `%20`, e.g. `![](01%20Groups.md)`. If the index has any embeds, only those are used. Obsidian then also shows the lectures inline in the index.
+- **Lecture numbers come from the file names:** `14 Laurent Series.md` is Lecture 14 in the PDF, so you can start numbering partway through the semester or skip lectures.
+- **To choose the lectures or their order yourself:** list them as embeds in the index, one per paragraph, with spaces written as `%20`, e.g. `![](01%20Groups.md)`. If the index has any embeds, only those are used, and they are numbered 1, 2, 3, … in the order listed. Obsidian then also shows the lectures inline in the index.
 
 **Lecture note** (template: *Lecture*): the course tag, then one top-level heading naming the topic.
 
@@ -137,7 +140,7 @@ tags: [math4107]
 **In the PDF:**
 - **Contents:** the first page has the title and a table of contents. Each lecture is a bold entry ("Lecture 2  Subgroups and Lagrange's theorem"), with its `##` sections listed beneath it, all with clickable page numbers.
 - **Lectures:** each top-level heading becomes "Lecture N: Title" on a new page, and its `##` sections are numbered N.1, N.2, ….
-- **Numbering:** theorems, lemmas and definitions are numbered per lecture (Theorem 2.3). Lectures and theorems are numbered in lecture order.
+- **Numbering:** theorems, lemmas and definitions are numbered per lecture (Theorem 2.3). Lectures take their number from the file name.
 - **Running header:** the course title and author, on every page after the first.
 - **Building a single lecture** works too; it just numbers as Lecture 1.
 
@@ -244,7 +247,33 @@ tags: [algebra]
 
 See `examples/book-exercises/`.
 
-## 4c. Paper notes
+## 4c. Research meetings
+
+For weekly meetings on a research project: laid out and styled like course notes, but each meeting is titled by its date instead of a lecture number.
+
+**Layout:** one folder per project, `notes/<Project>/`: an index note, and one note per meeting named by its date, `YYYY-MM-DD.md` (`2026-10-27.md`), so meetings sort in order.
+
+**Index note** (template: *Research index*):
+
+```markdown
+---
+type: research
+title: Spurious Correlations in XOR
+author: Peter Chen
+date: Fall 2026
+tags: [spurious-xor]
+---
+```
+
+**Meeting note** (template: *Meeting*): the tag, then one `# October 27th meeting` heading (the template fills in today's date), then `##` sections, statements, proofs and TODOs as in course notes.
+
+- **What the build includes:** every note in the folder whose name starts with a number, so every dated meeting, in date order.
+- **Numbering:** headings are unnumbered, and theorems count up through the whole project (Theorem 1, 2, …), since there is no lecture number to put in front.
+- **PDF layout:** a title page reading "Research meetings" over the project's title, a contents page with meetings and their sections, and each meeting on a new page under its own heading. The running header shows the project and author. Lines and bullet points are spaced more loosely than in course notes, since meeting notes are mostly bullets.
+
+See `examples/research-meetings/`.
+
+## 4d. Paper notes
 
 For reading a technical paper: an overview that walks through it section by section, emphasizing intuition and how results connect, with the statements numbered as in the paper, and proofs in separate notes. Everything builds into one PDF.
 
@@ -273,7 +302,7 @@ tags: [spurious-xor]
 ```
 The first line shows the statement above the proof in Obsidian, and the PDF restates it there too, in its colored box, as course notes do.
 
-**PDF layout:** a title page reading "Notes on *title*, by *paper-author*" with the "Open TODOs" table (every `> [!todo]`, with its page, where it is and its text), a contents page, the overview, then a "Proofs" appendix: every note in `Proofs/` in the paper's order, under the overview's own section headings ("B $L_0$ Analysis"). Turn the TODO table off with `todo-table: false`, or on for any other note with `todo-table: true`.
+**PDF layout:** a title page reading "Notes on *title*, by *paper-author*" with the "Open Questions" and "Open TODOs" tables (every `> [!question]` and `> [!todo]`, with its page, where it is and its text), a contents page, the overview, then a "Proofs" appendix: every note in `Proofs/` in the paper's order, under the overview's own section headings ("B $L_0$ Analysis"). Turn both tables off with `todo-table: false`, or on for any other note with `todo-table: true`.
 
 ## 5. Templates
 
@@ -287,6 +316,8 @@ Obsidian's Templates plugin reads `_templates/`. Insert one with Cmd+P → "Temp
 | *Problem* | another problem with its solution |
 | *Book index* | a new book's index note: `type: book` frontmatter |
 | *Chapter* | a book chapter: tag frontmatter, `# {{title}}` and a first exercise |
+| *Research index* | a research project's index note: `type: research` frontmatter |
+| *Meeting* | a meeting: tag frontmatter plus `# <today's date> meeting` (name the note `YYYY-MM-DD`) |
 | *Paper index* | a paper's overview: `type: paper` frontmatter, a section, a numbered lemma and its proof link |
 | *Paper proof* | a proof note: the statement preview embed and `*Proof of [Lemma](…)*` … `∎` (fix the overview's name and the `^id`) |
 | *Proof* | `*Proof.*` … `∎` |
@@ -299,14 +330,14 @@ After inserting one, fill in `course:` and `tags:`, and drop the number prefix f
 
 | Key | Values | Default |
 |---|---|---|
-| `type` | `course`, `pset`, `book`, `paper` (anything else is a plain note) | plain note |
+| `type` | `course`, `pset`, `book`, `research`, `paper` (anything else is a plain note) | plain note |
 | `title`, `course`, `author`, `date` | text, shown in the PDF header | none |
 | `book-author` | the book's author, on a book's title page | none |
 | `paper-author` | the paper's authors, on a paper's title page | none |
-| `todo-table` | `true` or `false`: the "Open TODOs" table on the first page | `true` for papers, else `false` |
+| `todo-table` | `true` or `false`: the "Open Questions" and "Open TODOs" tables on the first page | `true` for papers, else `false` |
 | `tags` | the course tag(s) whose macros to import | none |
-| `heading-numbering` | a Typst pattern such as `"1.a"`, or `none` | `1.` notes, `1.1` course, `none` pset and paper, chapters only for book |
-| `thm-base-level` | `1` (per lecture or section), `2`, …, or `none` (one counter) | `1`; `none` for psets and papers |
+| `heading-numbering` | a Typst pattern such as `"1.a"`, or `none` | `1.` notes, `1.1` course, `none` pset, research and paper, chapters only for book |
+| `thm-base-level` | `1` (per lecture or section), `2`, …, or `none` (one counter) | `1`; `none` for psets, research and papers |
 | `definitions` | list of one-off macros, `'name = $…$'` | none |
 
 **Typst Mate settings:**
@@ -322,4 +353,4 @@ After inserting one, fill in `course:` and `tags:`, and drop the number prefix f
 5. Problem sets: `psets/<Course>/HW<n>.md` from *Problem set*, with the same tag.
 6. Build the index (and each pset) and look over the PDFs in `_pdf/`.
 
-A book works the same way: *Book index* and *Chapter* instead of *Course index* and *Lecture*, with each chapter note named by the book's chapter number.
+A book works the same way: *Book index* and *Chapter* instead of *Course index* and *Lecture*, with each chapter note named by the book's chapter number. So does a research project: *Research index* and *Meeting*, with each meeting note named by its date.
