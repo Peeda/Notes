@@ -6,6 +6,8 @@
 //   pset:   problem set; homework header, problems numbered by their title
 //   book:   self-study exercises from a book; each top-level heading is a
 //           chapter, exercises numbered by their title as in psets
+//   research: weekly meeting notes for a research project; each top-level
+//           heading is a meeting, titled by its date ("October 27th meeting")
 //   paper:  reading notes on a paper: an overview whose results keep the
 //           paper's numbers, then a "Proofs" appendix of the proof notes
 //   other:  plain note
@@ -17,18 +19,19 @@
 
 // Per-note overrides from frontmatter (strings, "none" turns the feature off):
 //   heading-numbering: "1.a"   (default: "1." notes, "1.1" course, none pset,
-//                               chapters only for book)
-//   thm-base-level: 2          (default: 1, none for pset)
+//                               research and paper, chapters only for book)
+//   thm-base-level: 2          (default: 1, none for pset, research and paper)
 #let heading-numbering = "$if(heading-numbering)$$heading-numbering$$else$default$endif$"
 #let heading-numbering = if heading-numbering == "default" {
   // book: number chapters only; sections are left bare, since the book's own
   // section numbers rarely match a count of the ones with exercises
   // paper: the overview's headings carry the paper's own letters ("B. ...")
-  (note: "1.", course: "1.1", pset: none, book: "1", paper: none).at(doc-type, default: "1.")
+  // research: meetings are titled by date, so theorems run on through them
+  (note: "1.", course: "1.1", pset: none, book: "1", research: none, paper: none).at(doc-type, default: "1.")
 } else if heading-numbering == "none" { none } else { heading-numbering }
 #let thm-base-level = "$if(thm-base-level)$$thm-base-level$$else$default$endif$"
 #let thm-base-level = if thm-base-level == "default" {
-  if doc-type in ("pset", "paper") { none } else { 1 }
+  if doc-type in ("pset", "research", "paper") { none } else { 1 }
 } else if thm-base-level == "none" { none } else { int(thm-base-level) }
 
 #let (theorem, lemma, definition, problem, remark, proof, solution) = make-envs(
@@ -75,6 +78,26 @@
   show outline.entry.where(level: 1): it => {
     set block(above: 1.1em)
     strong(link(it.element.location(), it.indented([Lecture #it.prefix()], it.inner(), gap: 0.8em)))
+  }
+  doc
+}
+
+// research: like a course, but each top-level heading is just the meeting's
+// own title ("October 27th meeting"), with no lecture number
+#let research-style(doc) = {
+  set page(header: running-header(meta-title, meta-author))
+  // meeting notes are mostly bullets: open them up
+  set list(spacing: 1.2em)
+  set enum(spacing: 1.2em)
+  set par(leading: 0.8em)
+  show heading.where(level: 1): it => {
+    // each meeting starts a new page (the first follows the title and contents)
+    pagebreak(weak: true)
+    block(above: 0.5em, below: 1.2em, text(size: 1.3em, it.body))
+  }
+  show outline.entry.where(level: 1): it => {
+    set block(above: 1.1em)
+    strong(it)
   }
   doc
 }
@@ -134,38 +157,45 @@
   doc
 }
 
-// `> [!todo]` callouts (obsidian.lua): boxed like the theorems (faint tint,
-// bar on the left) in their own muted rust, "TODO" in small spaced capitals
-#let todo-accent = rgb("#a0584a")
-#let todo-box(body) = block(width: 100%, above: 0.9em, below: 0.9em,
-  fill: todo-accent.lighten(93%), stroke: (left: 2.5pt + todo-accent),
-  inset: (x: 0.9em, y: 0.5em), {
-    text(size: 0.75em, weight: "bold", tracking: 0.14em, fill: todo-accent.darken(15%))[TODO]
-    h(0.7em)
-    body
-  })
+// `> [!todo]` and `> [!question]` callouts (obsidian.lua): boxed like the
+// theorems (faint tint, bar on the left), each in its own muted hue, with its
+// label in small spaced capitals
+#let marks = (
+  question: (accent: rgb("#5f7a3e"), label: "QUESTION", title: "OPEN QUESTIONS", column: "Question"),
+  todo: (accent: rgb("#a0584a"), label: "TODO", title: "OPEN TODOS", column: "TODO"),
+)
+#let mark-box(kind, body) = {
+  let m = marks.at(kind)
+  block(width: 100%, above: 0.9em, below: 0.9em,
+    fill: m.accent.lighten(93%), stroke: (left: 2.5pt + m.accent),
+    inset: (x: 0.9em, y: 0.5em), {
+      text(size: 0.75em, weight: "bold", tracking: 0.14em, fill: m.accent.darken(15%), m.label)
+      h(0.7em)
+      body
+    })
+}
 
-// "Open TODOs" on the title page: one row per `> [!todo]`, with its page
-// (a link to it), where it is, and its text
-#let todo-table(rows) = {
+// "Open Questions" and "Open TODOs" on the title page: one row per callout,
+// with its page (a link to it), where it is, and its text
+#let mark-table(kind, rows) = {
+  let m = marks.at(kind)
   v(0.6em)
-  text(size: 9pt, weight: "bold", tracking: 0.18em, fill: todo-accent.darken(15%))[OPEN TODOS]
+  text(size: 9pt, weight: "bold", tracking: 0.18em, fill: m.accent.darken(15%), m.title)
   v(0.2em)
   set text(size: 9.5pt)
   set par(justify: false)
   table(columns: (auto, 13em, 1fr), stroke: none, inset: (x: 0.45em, y: 0.5em),
-    fill: (_, y) => if y > 0 and calc.even(y) { todo-accent.lighten(95%) },
-    table.hline(stroke: 0.8pt + todo-accent),
+    table.hline(stroke: 0.8pt + m.accent),
     table.header(
-      text(fill: luma(90))[Page], text(fill: luma(90))[Where], text(fill: luma(90))[TODO]),
+      text(fill: luma(90))[Page], text(fill: luma(90))[Where], text(fill: luma(90), m.column)),
     table.hline(stroke: 0.4pt + luma(150)),
     ..rows.map(((target, where, body)) => (
-      link(target, text(fill: todo-accent.darken(15%), weight: "bold",
+      link(target, text(fill: m.accent.darken(15%), weight: "bold",
         context counter(page).at(locate(target)).first())),
       text(fill: luma(70), where),
       body,
     )).flatten(),
-    table.hline(stroke: 0.8pt + todo-accent),
+    table.hline(stroke: 0.8pt + m.accent),
   )
 }
 
@@ -175,7 +205,7 @@
   doc
 }
 
-#show: doc => if doc-type == "course" { course-style(doc) } else if doc-type == "book" { book-style(doc) } else if doc-type == "pset" { pset-style(doc) } else if doc-type == "paper" { paper-style(doc) } else { doc }
+#show: doc => if doc-type == "course" { course-style(doc) } else if doc-type == "research" { research-style(doc) } else if doc-type == "book" { book-style(doc) } else if doc-type == "pset" { pset-style(doc) } else if doc-type == "paper" { paper-style(doc) } else { doc }
 
 $if(title)$
 #if doc-type == "pset" [
@@ -193,6 +223,19 @@ $if(title)$
   #text(size: 10pt, weight: "bold", tracking: 0.18em, fill: luma(100))[#upper[$course$]]
   #v(0.3em)
   $endif$
+  #block(text(size: 30pt, weight: "bold", hyphenate: false)[$title$])
+  #v(0.5em)
+  #line(length: 100%, stroke: 2pt)
+  #v(-0.55em)
+  #line(length: 100%, stroke: 0.4pt)
+  #v(0.2em)
+  #text(size: 11pt, fill: luma(80))[$if(author)$$author$$endif$$if(date)$ #h(1fr) $date$$endif$]
+  #v(0.9in)
+] else if doc-type == "research" [
+  // title: like a course, with "Research meetings" over the project's title
+  #v(1.2in)
+  #text(size: 10pt, weight: "bold", tracking: 0.18em, fill: luma(100))[RESEARCH MEETINGS]
+  #v(0.3em)
   #block(text(size: 30pt, weight: "bold", hyphenate: false)[$title$])
   #v(0.5em)
   #line(length: 100%, stroke: 2pt)
@@ -254,11 +297,11 @@ $if(title)$
 ]
 $endif$
 
-$if(todo-table)$
-$todo-table$
+$if(mark-tables)$
+$mark-tables$
 $endif$
 
-#if doc-type in ("course", "book", "paper") {
+#if doc-type in ("course", "book", "research", "paper") {
   if doc-type == "paper" { pagebreak(weak: true) }
   outline(title: [Contents], depth: 2, indent: 1.5em)
   if doc-type == "paper" { pagebreak(weak: true) }

@@ -3,12 +3,13 @@
 --               frontmatter `tags:`/`definitions:` of every included note
 --               become `#import`/`#let` lines at the top.
 --   1b. proofs: open-form proofs (`*Proof.* ... ∎`) become `> [!proof]`.
---   1c. todos:  `> [!todo]` callouts become `#todo-box` and are listed for
---               the "Open TODOs" table (on for papers, `todo-table:` elsewhere).
+--   1c. marks:  `> [!todo]` and `> [!question]` callouts become `#mark-box`
+--               and are listed for the "Open Questions" and "Open TODOs"
+--               tables (on for papers, `todo-table:` elsewhere).
 --   2. labels:  Obsidian block IDs (`^id` on its own line after a callout,
 --               or right after a `$$` block) become Typst labels.
 --   3. convert: math, links/references, callouts -> environments.
---   4. todo table: the collected todos go to the template as `todo-table`.
+--   4. mark tables: the collected marks go to the template as `mark-tables`.
 
 -- Keep in sync with FROM in build.sh
 local FROM = "markdown+wikilinks_title_after_pipe+lists_without_preceding_blankline-blank_before_blockquote-latex_macros-raw_tex"
@@ -28,7 +29,9 @@ local included = {}   -- absolute path -> true, for every note in this build
 local note_labels = {} -- absolute path -> label placed at the note's start
 local doc_type = "note"
 local todo_on = false
-local todos = {}      -- { id, where = Inlines, text = Inlines }, in order
+-- callout kinds collected into a table up front, in the tables' order
+local MARKS = { "question", "todo" }
+local todos = {}      -- { kind, id, where = Inlines, text = Inlines }, in order
 local preamble = {}   -- the `#import`/`#let` lines put above the body
 local labels = {}     -- label -> true if it can be #ref'd, false if only linked
 local headings = {}   -- normalized heading text -> identifier
@@ -322,8 +325,9 @@ local function expand_embeds(doc)
   local dir = pandoc.path.directory(main)
   local blocks = rebase(read_note(main_src).blocks, dir)
 
-  -- a course or book index with no embeds of its own includes every note in
-  -- its folder whose name starts with a number (01 Groups.md, 02 ...), in order
+  -- a course, book or research index with no embeds of its own includes every
+  -- note in its folder whose name starts with a number (01 Groups.md, 02 ...,
+  -- or a meeting's date, 2026-10-27.md), in order
   local has_embeds = false
   for _, b in ipairs(blocks) do has_embeds = has_embeds or embed_target(b) ~= nil end
   local main_type = fm_items(main_src, "type")[1]
@@ -355,7 +359,8 @@ local function expand_embeds(doc)
         blocks:insert(pandoc.Para{ pandoc.Image({}, pdir .. "/" .. p.name) })
       end
     end
-  elseif (main_type == "course" or main_type == "book") and not has_embeds then
+  elseif (main_type == "course" or main_type == "book" or main_type == "research")
+      and not has_embeds then
     local lectures = {}
     for _, name in ipairs(pandoc.system.list_directory(dir)) do
       local n = name:match("^(%d+).*%.md$")
@@ -363,9 +368,10 @@ local function expand_embeds(doc)
     end
     table.sort(lectures, function(a, b) return a[1] < b[1] or (a[1] == b[1] and a[2] < b[2]) end)
     for _, l in ipairs(lectures) do
-      -- a book's chapters keep the book's numbers (05 Modules.md is
-      -- Chapter 5), even when chapters are skipped
-      if main_type == "book" then
+      -- lectures and chapters keep their file's number (05 Modules.md is
+      -- Lecture 5 or Chapter 5), even when some are skipped; meetings are
+      -- unnumbered, and dated names already sort by the tie-break on the name
+      if main_type ~= "research" then
         blocks:insert(pandoc.RawBlock("typst", "#counter(heading).update(" .. (l[1] - 1) .. ")"))
       end
       blocks:insert(pandoc.Para{ pandoc.Image({}, dir .. "/" .. l[2]) })
@@ -472,8 +478,9 @@ local function group_proofs(doc)
   return doc
 end
 
--- pass 1c: todos ------------------------------------------------------------
--- `> [!todo] text` becomes `#todo-box[text] <todo-N>`, wherever it sits (in a
+-- pass 1c: todos and questions ---------------------------------------------
+-- `> [!todo] text` becomes `#mark-box("todo")[text] <todo-N>` (likewise
+-- `> [!question]`, <question-N>), wherever it sits (in a
 -- proof, a list item, another callout). Each is recorded with where it is: the
 -- proof it is in ("Proof of Lemma B.1"), else the heading above it.
 
@@ -505,15 +512,17 @@ local function mark_todos(doc)
       if b.t == "Header" then
         where = b.content:clone()
         out:insert(b)
-      elseif kind == "todo" then
+      elseif kind == "todo" or kind == "question" then
         local text = pandoc.Inlines{}
         local p = b.content[1].content
         for i = 2, #p do text:insert(p[i]) end
         while text[1] and (text[1].t == "Space" or text[1].t == "SoftBreak") do text:remove(1) end
-        local id = "todo-" .. (#todos + 1)
-        table.insert(todos, { id = id, where = where:clone(), text = text:clone() })
+        local n = 1
+        for _, t in ipairs(todos) do if t.kind == kind then n = n + 1 end end
+        local id = kind .. "-" .. n
+        table.insert(todos, { kind = kind, id = id, where = where:clone(), text = text:clone() })
         labels[id] = false
-        out:insert(pandoc.RawBlock("typst", "#todo-box["))
+        out:insert(pandoc.RawBlock("typst", '#mark-box("' .. kind .. '")['))
         if #text > 0 then out:insert(pandoc.Para(text)) end
         for k = 2, #b.content do out:insert(b.content[k]) end
         out:insert(pandoc.RawBlock("typst", "] <" .. id .. ">"))
@@ -749,10 +758,10 @@ local function BlockQuote(el)
   return out
 end
 
--- pass 4: todo table ---------------------------------------------------------
--- Rows for `#todo-table` in the template: (label, where, text), converted the
--- same way as the body. The table comes before the body, so it repeats the
--- body's imports for its math.
+-- pass 4: mark tables -------------------------------------------------------
+-- `#mark-table(kind, rows)` per kind that has any, questions first; rows are
+-- (label, where, text), converted the same way as the body. The tables come
+-- before the body, so they repeat the body's imports for their math.
 local function todo_table(doc)
   if not todo_on or #todos == 0 then return nil end
   local function typst(inl)
@@ -760,13 +769,19 @@ local function todo_table(doc)
     local t = pandoc.write(pandoc.Pandoc{ pandoc.Plain(conv) }, "typst")
     return (t:gsub("^%s+", ""):gsub("%s+$", ""))
   end
-  local rows = {}
-  for _, t in ipairs(todos) do
-    table.insert(rows, "  (<" .. t.id .. ">, [" .. typst(t.where) .. "], [" .. typst(t.text) .. "]),")
+  local code = { table.concat(preamble, "\n") }
+  for _, kind in ipairs(MARKS) do
+    local rows = {}
+    for _, t in ipairs(todos) do
+      if t.kind == kind then
+        table.insert(rows, "  (<" .. t.id .. ">, [" .. typst(t.where) .. "], [" .. typst(t.text) .. "]),")
+      end
+    end
+    if #rows > 0 then
+      table.insert(code, '#mark-table("' .. kind .. '", (\n' .. table.concat(rows, "\n") .. "\n))")
+    end
   end
-  doc.meta["todo-table"] = pandoc.MetaBlocks{
-    pandoc.RawBlock("typst", table.concat(preamble, "\n") .. "\n#todo-table((\n"
-      .. table.concat(rows, "\n") .. "\n))") }
+  doc.meta["mark-tables"] = pandoc.MetaBlocks{ pandoc.RawBlock("typst", table.concat(code, "\n")) }
   return doc
 end
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # usage: _build/build-current.sh path/to/note.md
 # For an Obsidian hotkey (Shell commands plugin): builds what the open note
-# belongs to and opens the PDF. A note in a folder with a `type: course` or
-# `type: book` index builds the whole folder, and so does a note in a folder
+# belongs to and opens the PDF. A note in a folder with a `type: course`,
+# `type: book` or `type: research` index builds the whole folder, and so does a note in a folder
 # with a `type: paper` index or in its Proofs/ subfolder; any other note
 # (psets, plain notes) builds itself.
 set -euo pipefail
@@ -14,7 +14,7 @@ is_index() {
 }
 dir="$(dirname "$note")"
 for f in "$dir"/*.md; do
-  if is_index "$f" "course|book|paper"; then target="$f"; break; fi
+  if is_index "$f" "course|book|research|paper"; then target="$f"; break; fi
 done
 if [[ "$target" == "$note" && "$(basename "$dir")" == "Proofs" ]]; then
   for f in "$(dirname "$dir")"/*.md; do
