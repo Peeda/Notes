@@ -4,15 +4,17 @@
 // none for one flat counter across the document.
 // `pset`: problem sets, where a problem's title is its number
 // (`> [!problem] 3` -> "Problem 3"); untitled problems count 1, 2, 3, ...
-// `book`: self-study exercises, styled like pset problems but labelled
+// `book`: self-study exercises, numbered like pset problems but labelled
 // "Exercise"; untitled ones count 2.1, 2.2, ... within chapter 2 (the
 // template resets the count at each chapter).
+// `color`: labels in each kind's hue (notes, courses, books, papers); psets
+// and research meetings are all black.
 // `paper`: reading notes on a paper, whose results keep the paper's numbers:
 // `> [!lemma] B.3 Title` -> `#lemma(number: "B.3", title: [Title])`, shown
 // as "Lemma B.3 (Title)"; without a number the box is unnumbered.
 #import "@preview/ctheorems:1.1.3": *
 
-#let make-envs(base-level: 1, pset: false, book: false, paper: false) = {
+#let make-envs(base-level: 1, pset: false, book: false, paper: false, color: true) = {
   let opts = (base: if base-level == none { none } else { "heading" }, base_level: base-level)
   // ctheorems takes the title positionally; its own `title:` is the env name
   let wrap(env) = if paper {
@@ -25,31 +27,42 @@
   } else {
     (title: none, body) => if title == none { env(body) } else { env(title, body) }
   }
-  // one style for every box: faint tint, thin bar on the left, title in the
-  // accent color; each type gets its own muted hue
-  let boxed(id, name, accent) = thmbox(id, name,
-    fill: accent.lighten(93%), stroke: (left: 2.5pt + accent), radius: 0pt,
-    inset: (x: 1em, y: 0.75em),
-    titlefmt: x => text(fill: accent.darken(15%), weight: "bold", x),
-    ..opts)
-  let remark = thmplain("remark", "Remark")
-  // psets: "Problem 3" in bold with a hairline running to the margin, then the
-  // statement as plain text below it (no box, no color); books box their
-  // exercises like the notes' theorems instead, in their own muted hue
-  let problem = if book { boxed("problem", "Exercise", rgb("#9b7a4a")) } else {
-    thmplain("problem", "Problem", base: none, inset: 0em,
-      padding: (top: 0.9em, bottom: 0.2em),
-      titlefmt: x => {
-        text(size: 1.15em, weight: "bold", x)
-        h(0.6em)
-        box(width: 1fr, baseline: -0.4em, line(length: 100%, stroke: 0.6pt + luma(150)))
-      },
-      separator: linebreak())
+  // classical (amsthm) style: a bold run-in label, "Theorem 3.2 (Name).",
+  // then the statement, italic for theorems and lemmas; no box. With `color`,
+  // each kind's label (and its period) takes its own muted hue
+  // with color, the label sits in a small box in its hue: "tint" (pale
+  // fill, colored text), "outline" (hairline frame) or "solid" (filled,
+  // white text); without color it is plain bold
+  let label-style = "tint"
+  let tag(accent, x) = if not color { strong(x) } else if label-style == "tint" {
+    box(fill: accent.lighten(87%), radius: 1.5pt, inset: (x: 0.3em), outset: (y: 0.22em),
+      text(fill: accent.darken(10%), strong(x)))
+  } else if label-style == "outline" {
+    box(stroke: 0.6pt + accent, inset: (x: 0.3em), outset: (y: 0.25em),
+      text(fill: accent, strong(x)))
+  } else {
+    box(fill: accent, inset: (x: 0.35em), outset: (y: 0.22em),
+      text(fill: white, strong(x)))
   }
+  let plain(id, name, accent, italic: false, base: opts.base) = thmplain(id, name,
+    inset: 0em, padding: (top: 0.45em, bottom: 0.45em),
+    titlefmt: x => tag(accent, x),
+    // with color the boxed label needs no period; the name keeps one
+    namefmt: x => if color [(#x).] else [(#x)],
+    separator: if color { h(0.55em) } else [*.*#h(0.5em)],
+    bodyfmt: if italic { emph } else { x => x },
+    base: base, base_level: opts.base_level)
+  let remark = thmplain("remark", "Remark", inset: 0em, separator: [.#h(0.5em)])
+  // psets: "Problem 3." in bold, run into the statement, no color
+  let problem = if book { plain("problem", "Exercise", rgb("#7d5f2e")) } else {
+    plain("problem", "Problem", black, base: none)
+  }
+  let proof-like(id, name) = thmproof(id, name, inset: 0em,
+    padding: (top: 0.2em, bottom: 0.45em), separator: [.#h(0.5em)])
   (
-    theorem:    wrap(boxed("theorem", "Theorem", rgb("#4a6a9b"))),
-    lemma:      wrap(boxed("theorem", "Lemma", rgb("#76679e"))),
-    definition: wrap(boxed("theorem", "Definition", rgb("#4a8a7c"))),
+    theorem:    wrap(plain("theorem", "Theorem", rgb("#2f4f80"), italic: true)),
+    lemma:      wrap(plain("theorem", "Lemma", rgb("#5a4a85"), italic: true)),
+    definition: wrap(plain("theorem", "Definition", rgb("#2e6b5e"))),
     problem:    if pset or book {
                   // own counter, so untitled problems after "3.14" still count 4, 5, ...
                   // stepped inside the body, so the call returns one element
@@ -64,16 +77,11 @@
                     [#count.step()#metadata(title)<env-number>#body],
                     number: if title == none { auto-number } else { title })
                 } else {
-                  wrap(boxed("problem", "Problem", rgb("#6f747c")))
+                  wrap(plain("problem", "Problem", rgb("#4f5560")))
                 },
     remark:     (title: none, body) => if title == none { remark(body, numbering: none) } else { remark(title, body, numbering: none) },
-    proof:      wrap(thmproof("proof", "Proof")),
-    // pset solutions: bold label and a gray bar down the left, set apart from
-    // the statement; book solutions read like the notes' proofs
-    solution:   if book { wrap(thmproof("solution", "Solution")) } else {
-                  wrap(thmproof("solution", "Solution", titlefmt: strong,
-                    stroke: (left: 1.5pt + luma(185)), inset: (left: 0.9em, right: 0em, y: 0.15em)))
-                },
+    proof:      wrap(proof-like("proof", "Proof")),
+    solution:   wrap(proof-like("solution", "Solution")),
   )
 }
 

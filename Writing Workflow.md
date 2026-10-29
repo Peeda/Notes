@@ -66,12 +66,12 @@ You need Pandoc 3+ and Typst 0.14+.
   ```
   | Callout | PDF |
   |---|---|
-  | `theorem`, `lemma`, `definition` | colored box, one shared counter (Theorem 1.2, Lemma 1.3, …) |
-  | `problem` | gray box, numbered (see psets) |
+  | `theorem`, `lemma`, `definition` | a label run into the statement, "Theorem 1.2 (Title).", italic for theorems and lemmas; one shared counter (Theorem 1.2, Lemma 1.3, …); the label sits in a small tinted box in its kind's color, except in psets and research meetings, where it is plain bold |
+  | `problem` | like a definition, numbered (see psets) |
   | `remark` | unnumbered |
-  | `proof`, `solution` | italic heading, ends with ∎ |
-  | `todo` | a rust-tinted "TODO" box, listed in the "Open TODOs" table (papers) |
-  | `question` | an olive-tinted "QUESTION" box, listed in the "Open Questions" table (papers) |
+  | `proof`, `solution` | italic "*Proof.*", ends with □ |
+  | `todo` | a thin frame with a bold "To do." (rust where the document has color), listed in the "Open TODOs" table (papers) |
+  | `question` | a thin frame with a bold "Question." (olive where the document has color), listed in the "Open Questions" table (papers) |
   | anything else (`note`, `tip`, …) | a quote with a bold title |
 - **Proofs and solutions are plain text**, so you keep Obsidian's live preview while writing them:
   ```markdown
@@ -211,7 +211,7 @@ See `examples/problem-set/HW1.md`.
 
 ## 4b. Book exercises
 
-For working through a book on your own: laid out and styled like course notes (an index plus one note per chapter, one PDF with a contents page), with each exercise in an ochre box and its solution below it like a proof.
+For working through a book on your own: laid out and styled like course notes (an index plus one note per chapter, one PDF with a contents page), with each exercise labelled in ochre and its solution below it like a proof.
 
 **Layout:** one folder per book, `notes/<Book>/`: an index note, and one note per chapter whose name starts with **the book's chapter number** (`01 Introduction to Groups.md`, `03 Quotient Groups.md`). The number is the chapter number in the PDF, so skipped chapters keep the book's numbering.
 
@@ -269,7 +269,7 @@ tags: [spurious-xor]
 
 - **What the build includes:** every note in the folder whose name starts with a number, so every dated meeting, in date order.
 - **Numbering:** headings are unnumbered, and theorems count up through the whole project (Theorem 1, 2, …), since there is no lecture number to put in front.
-- **PDF layout:** a title page reading "Research meetings" over the project's title, a contents page with meetings and their sections, and each meeting on a new page under its own heading. The running header shows the project and author. Lines and bullet points are spaced more loosely than in course notes, since meeting notes are mostly bullets.
+- **PDF layout:** a title page reading "Research meetings" over the project's title, a contents page with meetings and their sections, and each meeting on a new page under its own heading. The running header shows the project and author. Lines, paragraphs and bullet points are spaced much more loosely than in course notes, since meeting notes are mostly text, not math.
 
 See `examples/research-meetings/`.
 
@@ -300,7 +300,7 @@ tags: [spurious-xor]
 
 *Proof of [Lemma](../Proof%20Overview.md#^b1).* …  ∎
 ```
-The first line shows the statement above the proof in Obsidian, and the PDF restates it there too, in its colored box, as course notes do.
+The first line shows the statement above the proof in Obsidian, and the PDF restates it there too, as course notes do.
 
 **PDF layout:** a title page reading "Notes on *title*, by *paper-author*" with the "Open Questions" and "Open TODOs" tables (every `> [!question]` and `> [!todo]`, with its page, where it is and its text), a contents page, the overview, then a "Proofs" appendix: every note in `Proofs/` in the paper's order, under the overview's own section headings ("B $L_0$ Analysis"). Turn both tables off with `todo-table: false`, or on for any other note with `todo-table: true`.
 
