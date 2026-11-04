@@ -45,7 +45,7 @@
       text(fill: white, strong(x)))
   }
   let plain(id, name, accent, italic: false, base: opts.base) = thmplain(id, name,
-    inset: 0em, padding: (top: 0.45em, bottom: 0.45em),
+    inset: 0em, padding: (top: 0.8em, bottom: 0.8em),
     titlefmt: x => tag(accent, x),
     // with color the boxed label needs no period; the name keeps one
     namefmt: x => if color [(#x).] else [(#x)],
@@ -58,7 +58,7 @@
     plain("problem", "Problem", black, base: none)
   }
   let proof-like(id, name) = thmproof(id, name, inset: 0em,
-    padding: (top: 0.2em, bottom: 0.45em), separator: [.#h(0.5em)])
+    padding: (top: 0.3em, bottom: 0.8em), separator: [.#h(0.5em)])
   (
     theorem:    wrap(plain("theorem", "Theorem", rgb("#2f4f80"), italic: true)),
     lemma:      wrap(plain("theorem", "Lemma", rgb("#5a4a85"), italic: true)),

@@ -3,10 +3,21 @@ type: paper
 title: SGD Provably Prioritizes a Shortcut Spurious Feature in the XOR Model
 paper-author:
 author: Peter Chen
-date: 2026-10-26
+date: 2026-09-29
 tags:
   - spurious-xor
 ---
+# Misc Notes
+## Sign Alignment, Equal and Opposite Margins Intuition
+### Why $sgn(f_rho (bx)) = sgn(x_3) = bx_3$ at the end of Phase II
+* At the end of Phase I we have the following for each neuron $(a,bw)$:
+	* $sgn(bw^top bx) = sgn(w_3 x_3)$ (spurious feature dominates)
+	* $sgn(a) = sgn(bw_3)$ (sign alignment of $w_3$ with $S^+, S^-$ membership)
+* These imply that the network as a whole predicts according to $sgn(x_3)$ as we can show that for $sgn(x_3) = 1$, neurons fire iff they lie in $S^+$, and for $sgn(x_3) = -1$ neurons fire iff they lie in $S^-$ (ignoring issues about whether $sigma(0)$ is considered firing)
+	* Therefore because a neuron's sign is fixed by the sign of $a$ (neurons in $S^+$ make positive contributions, $S^-$ negative), all firing neurons make contributions that match the sign of $x_3$
+* To see this, observe that neurons fire when $bw^top bx >= 0$, or equivalently when $sgn(bw^top bx) = 1$, and the fact the spurious feature dominates makes this equivalent to $sgn(w_3 x_3) =  1 arrow.l.r.long sgn(w_3)=sgn(x_3)$. From here the fact that $w_3, a$ have matching signs imply that neurons fire if and only if $sgn(a) = sgn(x_3)$ as claimed.
+> [!question] The proof sketch of Phase II in the intro claims that the margin for majority data is controlled by $S^+$ and the margin for minority data is controlled by $S^-$, with the active ReLUs being the same for all majority data, and all minority data respectively; I don't see why this should be true though since even within $cal(X)_"maj"$ $x_3$ can vary signs which would activate $S^+, S^-$ respectively. I probably need to go reread the equal and opposite margins proof
+
 # A Notation
 ## Problem Setting
 - Data $bold(x)$ is distributed like i.i.d Rademacher in all entries except the third entry, and the target function is $y(x) = - x_1x_2$, the XOR on the first two entries

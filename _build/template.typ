@@ -10,6 +10,7 @@
 //           heading is a meeting, titled by its date ("October 27th meeting")
 //   paper:  reading notes on a paper: an overview whose results keep the
 //           paper's numbers, then a "Proofs" appendix of the proof notes
+//   article: a single note that is mostly text; unnumbered headings, no contents
 //   other:  plain note
 #let doc-type = "$if(type)$$type$$else$note$endif$"
 #let meta-title = [$if(title)$$title$$endif$]
@@ -27,11 +28,11 @@
   // section numbers rarely match a count of the ones with exercises
   // paper: the overview's headings carry the paper's own letters ("B. ...")
   // research: meetings are titled by date, so theorems run on through them
-  (note: "1.", course: "1.1", pset: none, book: "1", research: none, paper: none).at(doc-type, default: "1.")
+  (note: "1.", course: "1.1", pset: none, book: "1", research: none, paper: none, article: none).at(doc-type, default: "1.")
 } else if heading-numbering == "none" { none } else { heading-numbering }
 #let thm-base-level = "$if(thm-base-level)$$thm-base-level$$else$default$endif$"
 #let thm-base-level = if thm-base-level == "default" {
-  if doc-type in ("pset", "research", "paper") { none } else { 1 }
+  if doc-type in ("pset", "research", "paper", "article") { none } else { 1 }
 } else if thm-base-level == "none" { none } else { int(thm-base-level) }
 
 // psets and research meetings are all black; everything else colors each
@@ -46,22 +47,24 @@
 #show: doc => if doc-type in ("pset", "book", "paper") {
   problemrefs(book: doc-type == "book", paper: doc-type == "paper")(doc)
 } else { doc }
-#set page(paper: "us-letter", margin: (x: 1.25in, y: 1in), numbering: "1")
+#set page(paper: "us-letter", margin: 1in, numbering: "1")
 #set text(size: 11pt, font: "New Computer Modern")
-#set par(justify: true, first-line-indent: 1.2em)
+#set par(justify: true, first-line-indent: 1.2em, leading: 0.75em, spacing: 1.35em)
 #set heading(numbering: heading-numbering)
 #show ref: set text(fill: if color { rgb("#2f4f80") } else { black })
 // LaTeX's itemize markers (New Computer Modern has no ‣)
-#set list(marker: ([•], [–], [∗]))
+#set list(marker: ([•], [–], [∗]), spacing: 0.85em)
+#set enum(spacing: 0.85em)
 
-// classical (amsart) headings: top level centered in small caps, the next
-// bold, the third italic, all in the text size
+// headings step down by level: bold at 14pt, 12.5pt and 11pt, then italic
+// (lectures, chapters and meetings open with their own larger title)
 #show heading: set text(size: 11pt)
-#show heading.where(level: 1): set text(weight: "regular")
-#show heading.where(level: 1): set block(above: 1.8em, below: 1.1em)
-#show heading.where(level: 1): it => align(center, smallcaps(it))
-#show heading.where(level: 2): set block(above: 1.5em, below: 0.8em)
-#show heading.where(level: 3): set text(weight: "regular", style: "italic")
+#show heading.where(level: 1): set text(size: 14pt)
+#show heading.where(level: 1): set block(above: 2em, below: 1.1em)
+#show heading.where(level: 2): set text(size: 12.5pt)
+#show heading.where(level: 2): set block(above: 1.8em, below: 0.9em)
+#show heading.where(level: 3): set block(above: 1.5em, below: 0.8em)
+#show heading.where(level: 4): set text(weight: "regular", style: "italic")
 
 // Only display equations with a block ID (`^id` after the `$$`) get a number
 #set math.equation(numbering: "(1)")
@@ -78,8 +81,8 @@
   }
 }
 
-// course: each top-level heading reads "Lecture 3: Title", a new page per lecture,
-// and references to a lecture read "Lecture 3"
+// course: each top-level heading opens a new page under a small-caps "Lecture 3"
+// and the title in large bold; references to a lecture read "Lecture 3"
 #let course-style(doc) = {
   set page(header: running-header(meta-title, meta-author))
   show heading.where(level: 1): set heading(supplement: [Lecture])
@@ -87,8 +90,11 @@
     if it.numbering == none { return it }
     // each lecture starts a new page (the first follows the title and contents)
     pagebreak(weak: true)
-    block(width: 100%, above: 0.5em, below: 1.6em, align(center, text(size: 12.5pt,
-      smallcaps[Lecture #context counter(heading).display("1"). #it.body])))
+    block(width: 100%, above: 0.5em, below: 2em, align(center, {
+      smallcaps[Lecture #context counter(heading).display("1")]
+      v(0.15em)
+      text(size: 17pt, weight: "bold", it.body)
+    }))
   }
   // contents: "Lecture N.  Title" entries, their sections beneath
   show outline.entry.where(level: 1): it => {
@@ -110,7 +116,7 @@
     if it.outlined == false { return it }
     // each meeting starts a new page (the first follows the title and contents)
     pagebreak(weak: true)
-    block(width: 100%, above: 0.5em, below: 1.6em, align(center, text(size: 12.5pt, smallcaps(it.body))))
+    block(width: 100%, above: 0.5em, below: 2em, align(center, text(size: 17pt, weight: "bold", it.body)))
   }
   show outline.entry.where(level: 1): set block(above: 1.1em)
   doc
@@ -141,10 +147,10 @@
     if it.numbering == none { return it }
     pagebreak(weak: true)
     counter("pset-problem").update(0)
-    block(width: 100%, above: 0.5em, below: 1.6em, align(center, {
+    block(width: 100%, above: 0.5em, below: 2em, align(center, {
       smallcaps[Chapter #context counter(heading).display("1")]
-      linebreak()
-      text(size: 14pt, weight: "bold", it.body)
+      v(0.15em)
+      text(size: 17pt, weight: "bold", it.body)
     }))
   }
   show heading.where(level: 2): set heading(numbering: none)
@@ -160,6 +166,19 @@
 #let paper-style(doc) = {
   set page(header: running-header(emph(meta-title), meta-author))
   show outline.entry.where(level: 1): set block(above: 1.1em)
+  doc
+}
+
+// article: one note that is mostly prose and bullets; looser lines than a math
+// note, tighter than research meetings, with a fourth heading level in small caps
+#let article-style(doc) = {
+  set page(header: running-header(emph(meta-title), meta-author))
+  set list(spacing: 1em)
+  set enum(spacing: 1em)
+  set par(leading: 0.85em, spacing: 1.45em)
+  show heading.where(level: 4): set text(weight: "regular")
+  show heading.where(level: 4): set block(above: 1.3em, below: 0.7em)
+  show heading.where(level: 4): it => smallcaps(it)
   doc
 }
 
@@ -211,7 +230,7 @@
   doc
 }
 
-#show: doc => if doc-type == "course" { course-style(doc) } else if doc-type == "research" { research-style(doc) } else if doc-type == "book" { book-style(doc) } else if doc-type == "pset" { pset-style(doc) } else if doc-type == "paper" { paper-style(doc) } else { doc }
+#show: doc => if doc-type == "course" { course-style(doc) } else if doc-type == "research" { research-style(doc) } else if doc-type == "book" { book-style(doc) } else if doc-type == "pset" { pset-style(doc) } else if doc-type == "paper" { paper-style(doc) } else if doc-type == "article" { article-style(doc) } else { doc }
 
 // title: centered, amsart-like: the title in bold capitals, then a line of
 // small caps (the author, or "by <author>" for a book or paper), then italics

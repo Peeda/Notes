@@ -2,7 +2,7 @@
 tags: []
 ---
 
-# 01 More Argument Principle - Nov 26th
+# More Argument Principle - Nov 26th
 ## How the argument principle connects to the argument
 > [!theorem] The argument principle
 > If $C$ is a simple closed curve with $f$ analytic on a neighborhood of $C$ and its interior except for finitely many singularities inside $C$ then

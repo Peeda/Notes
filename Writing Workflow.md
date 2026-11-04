@@ -13,6 +13,7 @@ The vault holds six kinds of documents:
 | **Book exercises** | `notes/<Book>/`, one note per chapter plus an index | one PDF of your solutions, chapter by chapter, numbered as in the book |
 | **Research meetings** | `notes/<Project>/`, one note per meeting, named by its date, plus an index | one PDF for the project, a section per meeting ("October 27th meeting") |
 | **Paper notes** | `notes/<Paper>/`, an overview note plus `Proofs/`, one note per proof | one PDF: a section-by-section overview with the paper's numbers, then the proofs |
+| **Articles** | anywhere under `notes/`, one note that is mostly text | a single PDF with a title, unnumbered headings and looser lines |
 | **Plain notes** | anywhere under `notes/` | a simple PDF |
 
 Anything that is really a typeset document (a talk, a paper draft) stays a `.typ` file in `typst/`, compiled with `typst compile` directly.
@@ -139,7 +140,7 @@ tags: [math4107]
 
 **In the PDF:**
 - **Contents:** the first page has the title and a table of contents. Each lecture is a bold entry ("Lecture 2  Subgroups and Lagrange's theorem"), with its `##` sections listed beneath it, all with clickable page numbers.
-- **Lectures:** each top-level heading becomes "Lecture N: Title" on a new page, and its `##` sections are numbered N.1, N.2, ….
+- **Lectures:** each top-level heading starts a new page under "Lecture N" and the title in large bold, and its `##` sections are numbered N.1, N.2, ….
 - **Numbering:** theorems, lemmas and definitions are numbered per lecture (Theorem 2.3). Lectures take their number from the file name.
 - **Running header:** the course title and author, on every page after the first.
 - **Building a single lecture** works too; it just numbers as Lecture 1.
@@ -320,6 +321,7 @@ Obsidian's Templates plugin reads `_templates/`. Insert one with Cmd+P → "Temp
 | *Meeting* | a meeting: tag frontmatter plus `# <today's date> meeting` (name the note `YYYY-MM-DD`) |
 | *Paper index* | a paper's overview: `type: paper` frontmatter, a section, a numbered lemma and its proof link |
 | *Paper proof* | a proof note: the statement preview embed and `*Proof of [Lemma](…)*` … `∎` (fix the overview's name and the `^id`) |
+| *Article* | a single mostly-text note: `type: article` frontmatter |
 | *Proof* | `*Proof.*` … `∎` |
 
 After inserting one, fill in `course:` and `tags:`, and drop the number prefix from a lecture's heading. A note without the course tag loses the course macros, and Typst Mate shows an unknown-variable error.
@@ -330,14 +332,14 @@ After inserting one, fill in `course:` and `tags:`, and drop the number prefix f
 
 | Key | Values | Default |
 |---|---|---|
-| `type` | `course`, `pset`, `book`, `research`, `paper` (anything else is a plain note) | plain note |
+| `type` | `course`, `pset`, `book`, `research`, `paper`, `article` (anything else is a plain note) | plain note |
 | `title`, `course`, `author`, `date` | text, shown in the PDF header | none |
 | `book-author` | the book's author, on a book's title page | none |
 | `paper-author` | the paper's authors, on a paper's title page | none |
 | `todo-table` | `true` or `false`: the "Open Questions" and "Open TODOs" tables on the first page | `true` for papers, else `false` |
 | `tags` | the course tag(s) whose macros to import | none |
-| `heading-numbering` | a Typst pattern such as `"1.a"`, or `none` | `1.` notes, `1.1` course, `none` pset, research and paper, chapters only for book |
-| `thm-base-level` | `1` (per lecture or section), `2`, …, or `none` (one counter) | `1`; `none` for psets, research and papers |
+| `heading-numbering` | a Typst pattern such as `"1.a"`, or `none` | `1.` notes, `1.1` course, `none` pset, research, paper and article, chapters only for book |
+| `thm-base-level` | `1` (per lecture or section), `2`, …, or `none` (one counter) | `1`; `none` for psets, research, papers and articles |
 | `definitions` | list of one-off macros, `'name = $…$'` | none |
 
 **Typst Mate settings:**
