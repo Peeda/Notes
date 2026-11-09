@@ -54,6 +54,7 @@ _build/build.sh "notes/Misc/ODE Exam 1 Review.md" psets/MATH4320/HW1.md
   - Keep the `note-properties` plugin itself enabled: in Quartz v5 it parses frontmatter, and without it every title becomes "Untitled".
   - Fonts: Space Grotesk headings at weight 500, Inter text, JetBrains Mono code. The user found serif too formal for the site and bold mono headings too heavy; samples of other pairings are in `_site/font-samples/`.
   - Dark mode by default: `build-site.sh` patches the darkmode plugin's first-visit theme to "dark" (the plugin otherwise follows the OS). The toggle still works and is remembered. Link color: the theorem blue `#2f4f80` (`#8fa9d6` in dark mode).
+  - The explorer, search and graph plugins fetch `/static/contentIndex.json` from the domain root, which 404s under `peeda.github.io/Notes/` (empty explorer, broken search). `build-site.sh` rewrites it to `/Notes/static/...` from `baseUrl`, or `/static/...` with `--serve`.
 - **Style** (`custom.scss`): unlike the PDFs, results (and TODOs, questions) are boxes: a 1px border and faint tint in the kind's hue, with a tinted title bar. The user asked for this look on the site only; the PDFs keep the plain amsthm style. Each kind has a lighter hue for dark mode (`--h`). Quartz colors the title's `<p>` with `--color`, so it is set from `--h`. Samples: `_site/box-samples/`. Wide display equations shrink to the column.
 - Origin and test results: `~/Programming/typst_obsidian_testing/obsidian-typst-e2e/RESULTS.md`.
 

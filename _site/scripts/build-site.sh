@@ -18,6 +18,18 @@ done
 grep -q 'prefers-color-scheme: light' "$Q"/.quartz/plugins/darkmode/dist/index.js &&
   echo "build-site: warning: dark-by-default patch did not apply (darkmode plugin changed?)" >&2
 
+# The explorer, search and graph plugins fetch "/static/contentIndex.json" from the domain root,
+# which 404s when the site lives under a path (peeda.github.io/Notes/). Prefix the path from
+# baseUrl; --serve previews at the root of localhost, so keep "/" there. Re-runnable: it matches
+# any earlier prefix too.
+prefix=""
+if [[ " $* " != *" --serve "* ]]; then
+  base=$(sed -nE 's/^ *baseUrl: *"?([^" #]+)"?.*/\1/p' "$SITE/scripts/quartz.config.yaml")
+  [[ "$base" == */* ]] && prefix="/${base#*/}"
+fi
+PREFIX="$prefix" perl -i -pe 's{fetch\((\\?)"(?:/[^"\\]*)?/static/contentIndex\.json(\\?)"\)}{fetch($1"$ENV{PREFIX}/static/contentIndex.json$2")}g' \
+  "$Q"/.quartz/plugins/*/dist/index.js "$Q"/.quartz/plugins/*/dist/components/index.js 2>/dev/null || true
+
 # Hack (see typst-preamble.mjs): prepend preamble.typ to every formula, and make Typst errors
 # render as red inline spans instead of aborting the whole build.
 export QUARTZ_DIR="$Q" TYPST_PREAMBLE_FILE="$SITE/preamble.typ"
