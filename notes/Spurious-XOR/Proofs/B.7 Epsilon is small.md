@@ -5,9 +5,7 @@ tags: [spurious-xor]
 
 *Proof of [Lemma](../Proof%20Overview.md#^b7).* Note that for bounding the absolute value, by the definition of $epsilon_bw$, we can take the first case without loss of generality such that $epsilon_bw = Pr_bxi [bw^top bxi - wsps in [A,B]] - Pr_bxi [bw^top bxi + wsps in [A,B]]$ as the other case has the same absolute value.
 
-From here the high level appraoch is use a form of Berry-Esseen given in
-
-> [!todo] appendix
+From here the high level appraoch is use a form of Berry-Esseen given in the appendix
 
 to rewrite the above as a difference of Gaussian cdfs and apply a few identities to get our desired bound. Writing $phi(u)$ for the pdf of a Gaussian with mean zero and variance $norm(bw_perp)^2$, Berry-Esseen gives that
 $$

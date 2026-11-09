@@ -53,9 +53,7 @@ and use that $1 + u leqa exp(u)$ (yes this isn't meant to be $1+x <= exp(x)$) to
 $$
 leqa 1/sqrt(d) (log^(2C) (1 + log^(3C)(d)) + log^(4 C)(d))  leqa log^(5 C) (d) slash sqrt(d) leqa log^(2 C) (d)
 $$
-as desired. Now considering $-wsp^top grad_bw (hat(L)_rho - L_0)$ observe that
-
-> [!todo] type up this lemma at some point and ref
+as desired. Now considering $-wsp^top grad_bw (hat(L)_rho - L_0)$ observe that that one lemma
 
 in the $i=3$ case states
 $$

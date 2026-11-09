@@ -16,8 +16,28 @@ tags:
 * These imply that the network as a whole predicts according to $sgn(x_3)$ as we can show that for $sgn(x_3) = 1$, neurons fire iff they lie in $S^+$, and for $sgn(x_3) = -1$ neurons fire iff they lie in $S^-$ (ignoring issues about whether $sigma(0)$ is considered firing)
 	* Therefore because a neuron's sign is fixed by the sign of $a$ (neurons in $S^+$ make positive contributions, $S^-$ negative), all firing neurons make contributions that match the sign of $x_3$
 * To see this, observe that neurons fire when $bw^top bx >= 0$, or equivalently when $sgn(bw^top bx) = 1$, and the fact the spurious feature dominates makes this equivalent to $sgn(w_3 x_3) =  1 arrow.l.r.long sgn(w_3)=sgn(x_3)$. From here the fact that $w_3, a$ have matching signs imply that neurons fire if and only if $sgn(a) = sgn(x_3)$ as claimed.
-> [!question] The proof sketch of Phase II in the intro claims that the margin for majority data is controlled by $S^+$ and the margin for minority data is controlled by $S^-$, with the active ReLUs being the same for all majority data, and all minority data respectively; I don't see why this should be true though since even within $cal(X)_"maj"$ $x_3$ can vary signs which would activate $S^+, S^-$ respectively. I probably need to go reread the equal and opposite margins proof
+# Misc Questions/TODOs
+## Next things to think about in order:
+* get intuition for what neurons fire when, and why majority data would correspond to $S^+$
+	* After looking more into it I believe the intuition given in the intro might be incorrect, the sign of $x_3$ controls which neurons fire, not majority/minority data
+	* The proof of E.8 shows this, when you look at the cases the first and fourth one correspond to majority data as $x_3=y(z)$ but in one case it's shown the sum is close to $gamma_+$ whereas the other shows closeness to $gamma_-$.
+* Review the margin condition proof
+	* I'm somewhat concerned the justification isn't quite correct or needs more elaboration, you're essentially saying that the partition will be close to even and all the $wsp$ are the same size so we get balance by Hoeffding's
+		* But you're conditioning on $cal(E)_"train", cal(E)_"test"$ so you're conditioning on the sizes being somewhat close
+		* My reading is the Hoeffding's setup writes $gamma^+ = sum_((a,bw)) bb(1)[a > 0] bw_"sp"^2$ and this is what we mean when we say it's a sum of bounded independent random variables? Otherwise there's no randomness and the statement becomes trivial, but I don't think we have independence under this conditioning as if we were to condition on the first $abs(S^+)$ terms of the sum all having this indicator be true, then the distribution of the remaining ones is different (they can't have the indicator fire)
+		
+* Get better intuition for why the margin condition is needed in the $L_rho$ losses and whether the losses blow up when the condition fails
+	* On a related note is there a way to characterize $gamma$ that adressess this
+* Get intuition for the two neuron case mentioned in the reviews
+## After meeting on Nov 4th
+> [!question] Is there a proper way we could characterize $gamma$ that takes into account the fact $wsp$ isn't dominating in this non equal but opposite case? Would that imply that the $L_rho$ losses explode since these rely on the margin condition to bound the $psi(gamma)$ terms?
 
+> [!question] The Phase I proof seems to break empirically at times, with spurious features never learned and xor learned immediately (you get roughly equal norms, not spurious domination). Why might this be, given that the Phase I proof doesn't need constant $lambda$? 
+
+> [!question] Does assuming $xi ~ sigma bb(1)$ break the proof in $cal(epsilon)_"train"$ that with high probability $xi$ isn't lined up with $bw_perp$? If so then this makes it harder to show that the network predicts according to $wsp$ but maybe the asymptotics could still be shown
+# Typos
+
+> [!todo] Page 33 on the third line there's a missing closing parentesis on the $1 plus.minus o(1)$ and an extra one after the second $gamma$ it should be $-min((1 plus.minus o(1))gamma, ((1 plus.minus o(1))gamma))$
 # A Notation
 ## Problem Setting
 - Data $bold(x)$ is distributed like i.i.d Rademacher in all entries except the third entry, and the target function is $y(x) = - x_1x_2$, the XOR on the first two entries
@@ -214,7 +234,6 @@ E.8 - "Equal and opposite" margin condition
 * Roughly speaking $w_"sp"$ is large enough in Phase II scalings so the other terms are negligible
 * You consider $gamma_+, gamma_-$ which are the unnormalized contributions from $S^+, S^-$ and Hoeffding's with $p >> log^5 (d)$ gives multiplicative error $sqrt((log d) slash p)$
 	* In particular $sgn(a)$ is Rademacher so conditioning on the $w_"sp"$ for all $p$ neurons lets you apply Hoeffding's
-> [!question] Isn't this just with high probability though? The paper seems to read like this is with probability one so I'd guess there's some implicit union bound type thing going on
 * Then after appealing to Phase II scalings to bound a certain residual term you consider cases on $x_1,x_2,x_3$ and get the desired result, with minority $bold(x)$ picking up a sign flip
 verli
 * The reason the scaling is like $w_"sp"^2$ is because $abs(a)$ is like $w_"sp"$

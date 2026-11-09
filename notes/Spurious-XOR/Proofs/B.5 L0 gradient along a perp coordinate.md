@@ -5,8 +5,6 @@ tags: [spurious-xor]
 
 *Proof of [Lemma](../Proof%20Overview.md#^b5).* This proof can be done in the same way as [Lemma](../Proof%20Overview.md#^b4) just applied coordinate wise, although here I will do a slightly different approach that expands over $x_i$, using that $x_i$ is Rademacher for $i > 3$, rather than appealing to symmetry which changes the first few steps. Pretty sure that this works but it's late right now so
 
-> [!todo] check this
-
 From definition we have that
 $$
 -w_i partial_(w_i) L_0 = EE_x [a y(bx) sigma'(bw^top bx) w_i x_i] \
