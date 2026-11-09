@@ -16,6 +16,7 @@ This folder is an Obsidian vault of math notes. Math is written in **Typst synta
 | `typst/` | standalone `.typ` documents (talk, bibliography, Spurious Notes, whose content now lives in `notes/Spurious-XOR/`), compiled with `typst compile` directly. Their PDFs are tracked |
 | `_build/` | `build.sh`, `obsidian.lua` (Pandoc filter), `template.typ`, `envs.typ` (ctheorems environments), `macros.typ` (vault-wide macros), `tags/<tag>.typ` (per-course macros) |
 | `_templates/` | Obsidian Templates plugin: Course index, Lecture, Research index, Meeting, Problem set, Problem, Proof, Book index, Chapter, Paper index, Paper proof, Article |
+| `_site/` | the website (Quartz v5). Only `_site/scripts/` is tracked; Quartz itself, the staged content and `public/` are gitignored |
 | `_pdf/` | all build output, mirroring the vault (psets too, under `_pdf/psets/`), gitignored |
 | `examples/` | gitignored demo course, pset and book; `_build/tags/example-course.typ` is gitignored too |
 | `.obsidian/` | vault config: `snippets/rice.css` (theme and editor spacing fixes) and `plugins/build-pdf/` (the Build PDF command) are tracked; other plugins, including Typst Mate and its settings, are gitignored |
@@ -36,6 +37,25 @@ _build/build.sh "notes/Misc/ODE Exam 1 Review.md" psets/MATH4320/HW1.md
   4. Convert math (verbatim), links (to `#ref`/`#link`) and callouts (to ctheorems environments).
 
   A preprocessing step before Pandoc strips `%% comments %%` and adds the blank lines Pandoc needs before headings and nested callouts. Pandoc reads with `-blank_before_blockquote`, so a callout can start right under a list item or line of text, as in Obsidian.
+
+## Website
+
+`_site/scripts/setup.sh` (once), then `_site/scripts/build-site.sh [--serve]` → `_site/public`. On push to `main`, `.github/workflows/site.yml` runs both on Ubuntu and deploys to GitHub Pages (peeda.github.io/Notes), so the scripts must stay portable: no BSD-only `sed -i ''`, use `perl -i`.
+
+- **What it publishes:** `stage.sh` copies only `notes/` (`.md` and images), as the site root, and `attachments/` into `_site/.quartz/content`. Links climbing to `attachments/` lose one `../`. `ignorePatterns` must not list `misc`: the public `notes/Misc` sits at the root.
+  - It must sit inside Quartz's own git repo: Quartz skips gitignored files, and the vault ignores `_site/`.
+  - The copies are rewritten: `![](x.md#^id)` → `![[x#^id]]`; result titles get their kind, "Lemma B.1 (Title)"; folders without an `index.md` get one with a title; `type: pset` notes are dropped.
+- **Math:** Quartz's `latex` plugin with `renderEngine: typst`, through rehype-typst 0.7.0, which runs Typst 0.14.2, the same as Typst Mate.
+  - rehype-typst has no preamble option, so `typst-preamble.mjs` monkeypatches its `NodeCompiler.compile` through `node --import`. It prepends `_site/preamble.typ` to every formula.
+  - The preamble is `macros.typ`, every tag file and every `definitions:` entry, combined. `stage.sh` fails if two of them define the same name.
+  - The same patch turns a compile error into a red `typst-error` span. Without it, one error aborts the whole build.
+- **Config:** `markdownLinkResolution: relative`, since the vault's links are relative paths. OFM `highlight` is off, since Typst's `==` would otherwise read as a highlight.
+  - Off at the user's request: stacked pages, graph, og-image, and the Properties box (`hidePropertiesView: true`).
+  - Keep the `note-properties` plugin itself enabled: in Quartz v5 it parses frontmatter, and without it every title becomes "Untitled".
+  - Fonts: Space Grotesk headings at weight 500, Inter text, JetBrains Mono code. The user found serif too formal for the site and bold mono headings too heavy; samples of other pairings are in `_site/font-samples/`.
+  - Dark mode by default: `build-site.sh` patches the darkmode plugin's first-visit theme to "dark" (the plugin otherwise follows the OS). The toggle still works and is remembered. Link color: the theorem blue `#2f4f80` (`#8fa9d6` in dark mode).
+- **Style** (`custom.scss`): unlike the PDFs, results (and TODOs, questions) are boxes: a 1px border and faint tint in the kind's hue, with a tinted title bar. The user asked for this look on the site only; the PDFs keep the plain amsthm style. Each kind has a lighter hue for dark mode (`--h`). Quartz colors the title's `<p>` with `--color`, so it is set from `--h`. Samples: `_site/box-samples/`. Wide display equations shrink to the column.
+- Origin and test results: `~/Programming/typst_obsidian_testing/obsidian-typst-e2e/RESULTS.md`.
 
 ## Note conventions
 

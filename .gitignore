@@ -14,3 +14,5 @@ _build/tags/example-course.typ
 # Claude Code per-machine settings
 .claude/settings.local.json
 /misc
+_site/*
+!_site/scripts/

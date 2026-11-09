@@ -1,0 +1,63 @@
+@use "./base.scss";
+
+// Copied into .quartz/quartz/styles/ by build-site.sh.
+
+// Space Grotesk headings at medium weight (the user found bold mono headings too heavy)
+h1, h2, h3, h4, h5, h6, .page-title, .page-title a {
+  font-weight: 500;
+}
+
+// ---- Typst math ----------------------------------------------------------------------------
+// Display equations: breathing room between consecutive ones, and a too-wide equation shrinks
+// to the column (rehype-typst gives it no wrapper that could scroll instead).
+article svg.typst-doc[style*="display:block"] {
+  margin: 0.6em auto !important;
+  max-width: 100%;
+  height: auto;
+}
+.typst-error {
+  font-family: var(--codeFont);
+  font-size: 0.9em;
+}
+
+// ---- Results: tinted boxes with a title bar, one hue per kind (the site, unlike the PDFs) -----
+// --h is the kind's hue; dark mode uses a lighter one. Quartz colors the title's <p> with
+// --color, so that is set from --h too.
+@mixin result($light, $dark, $italic: false) {
+  --h: #{$light};
+  :root[saved-theme="dark"] & { --h: #{$dark}; }
+  --color: var(--h);
+  --border: color-mix(in srgb, var(--h) 40%, transparent);
+  --bg: color-mix(in srgb, var(--h) 4%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 0;
+  margin: 1.2em 0;
+  overflow: hidden;
+
+  & > .callout-title {
+    background: color-mix(in srgb, var(--h) 16%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--h) 30%, transparent);
+    padding: 0.45em 1em;
+    gap: 0;
+    align-items: baseline;
+    .callout-icon { display: none; }
+    .callout-title-inner, .callout-title-inner > p { font-weight: 600; color: var(--h); }
+  }
+  & > .callout-content {
+    padding: 0.2em 1em 0.6em;
+    background: transparent;
+    @if $italic { font-style: italic; }
+  }
+}
+
+.callout[data-callout="theorem"]    { @include result(#2f4f80, #a3bdf0, true); }
+.callout[data-callout="lemma"]      { @include result(#5a4a85, #c0afef, true); }
+.callout[data-callout="definition"] { @include result(#2e6b5e, #8fd6c3); }
+.callout[data-callout="problem"]    { @include result(#4f5560, #b4bac4); }
+.callout[data-callout="remark"]     { @include result(#4f5560, #b4bac4); }
+
+// TODO / question: same boxes, in the PDFs' rust and olive
+.callout[data-callout="todo"]     { @include result(#a0584a, #e39a84); }
+.callout[data-callout="question"] { @include result(#5f7a3e, #a9c98b); }

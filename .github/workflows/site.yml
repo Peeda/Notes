@@ -1,0 +1,63 @@
+# Build the Quartz website from notes/ and publish it to GitHub Pages (peeda.github.io/Notes).
+# See "1b. The website" in Writing Workflow.md. Needs Settings -> Pages -> Source: GitHub Actions.
+name: Website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "notes/**"
+      - "attachments/**"
+      - "_build/macros.typ"
+      - "_build/tags/**"
+      - "_site/scripts/**"
+      - ".github/workflows/site.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Quartz and its plugins are pinned by setup.sh, so the install can be cached on its hash.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            _site/.quartz
+            !_site/.quartz/content
+            !_site/.quartz/public
+          key: quartz-${{ runner.os }}-${{ hashFiles('_site/scripts/setup.sh', '_site/scripts/quartz.config.yaml') }}
+
+      - name: Install Quartz
+        run: _site/scripts/setup.sh
+
+      - name: Build site
+        run: _site/scripts/build-site.sh
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site/public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -54,6 +54,26 @@ find notes -name '*.md' -exec _build/build.sh {} +
 
 You need Pandoc 3+ and Typst 0.14+.
 
+## 1b. The website
+
+`notes/` can also be published as a website with [Quartz](https://quartz.jzhao.xyz) v5. Everything lives in `_site/`, which git ignores except for its scripts:
+
+```bash
+_site/scripts/setup.sh
+```
+
+```bash
+_site/scripts/build-site.sh
+```
+
+- `setup.sh` runs once. It installs a pinned Quartz into `_site/.quartz`, with its Typst renderer at Typst 0.14.2, the same version Typst Mate runs. Math that renders in Obsidian therefore renders on the site.
+- `build-site.sh` writes the site to `_site/public`. With `--serve`, it previews at http://localhost:8080.
+- **What gets published:** `stage.sh` copies only `notes/` (Markdown and images, no PDFs) and `attachments/` into `_site/.quartz/content`. `notes/` becomes the site root, so a course is at `peeda.github.io/Notes/MATH4320/...`, and links into `attachments/` are adjusted to match. It also drops any `type: pset` note. In the copies, a titled result reads as in the PDFs, "Lemma B.1 (Title)". Nothing else in the vault is read.
+- **Macros:** all of them reach the site through `_site/preamble.typ`: `macros.typ`, every tag file and every `definitions:` entry, combined into one preamble that comes before every formula. So two tag files must not define the same name. The build stops and names the clash if they do.
+- **Errors:** a formula that fails to compile shows up red on its page instead of breaking the build. The build prints how many there were.
+- **Embeds:** `![](note.md#^id)` becomes a Quartz transclusion, so a proof page shows its statement.
+- **Publishing:** pushing to `main` publishes the site to https://peeda.github.io/Notes. The GitHub Action `.github/workflows/site.yml` runs the same two scripts and deploys `_site/public`. It runs only when `notes/`, `attachments/`, the macros or `_site/scripts/` change, and it can also be started by hand from the repo's Actions tab. It publishes what is committed, not what is on disk.
+
 ## 2. Writing basics (all kinds)
 
 - **Math is Typst syntax:**
