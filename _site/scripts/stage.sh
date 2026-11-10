@@ -11,8 +11,9 @@ VAULT="$(cd "$SITE/.." && pwd)"
 C="$SITE/.quartz/content"   # inside Quartz's own git repo: Quartz skips gitignored files, and the vault ignores _site/
 P_DIR="$VAULT/private"
 SAMPLES="$SITE/.locked-samples"   # phrases from locked notes; build-site.sh checks none reach public/
+TITLES="$SITE/.locked-titles.tsv" # slug <TAB> real title, for locked-titles.mjs
 
-rm -rf "$C"; mkdir -p "$C"; : > "$SAMPLES"
+rm -rf "$C"; mkdir -p "$C"; : > "$SAMPLES"; : > "$TITLES"
 md_filter=(--prune-empty-dirs --include='*/' --include='*.md' --include='*.png' --include='*.jpg'
            --include='*.jpeg' --include='*.gif' --include='*.svg' --include='*.webp' --exclude='*')
 rsync -a "${md_filter[@]}" "$VAULT/notes/" "$C/"
@@ -70,7 +71,7 @@ done
 n_locked=0
 for l in ${locked[@]+"${locked[@]}"}; do
   while IFS= read -r -d '' f; do
-    PW="$PW" SAMPLES="$SAMPLES" perl -e '
+    PW="$PW" SAMPLES="$SAMPLES" TITLES="$TITLES" CONTENT="$C" perl -e '
       my $file = shift;
       open my $in, "<", $file or die; my $src = do { local $/; <$in> }; close $in;
       my ($fm, $body) = $src =~ /\A---\n(.*?\n)---\n(.*)\z/s ? ($1, $2) : ("", $src);
@@ -78,17 +79,28 @@ for l in ${locked[@]+"${locked[@]}"}; do
       my ($title) = $fm =~ /^title:\s*(.*?)\s*$/m;
       $title = "" unless defined $title;
       $title =~ s/^(["\x27])(.*)\1$/$2/;
-      if ($title eq "") { ($title = $file) =~ s{.*/}{}; $title =~ s/\.md$//; }
+      (my $fname = $file) =~ s{.*/}{}; $fname =~ s/\.md$//;
+      $title = $fname if $title eq "";
+      # the page slug as Quartz writes links: path from the content root, no .md, spaces -> -
+      (my $slug = $file) =~ s{^\Q$ENV{CONTENT}\E/}{}; $slug =~ s/\.md$//;
+      $slug =~ s/ /-/g; $slug =~ s/&/-and-/g; $slug =~ s/%/-percent/g; $slug =~ s/[?#]//g;
+      open my $t, ">>", $ENV{TITLES} or die; print $t "$slug\t$title\n"; close $t;
       $fm =~ s/^title:.*\n//mg; $fm =~ s/^password:.*\n//mg;
       (my $pw = $ENV{PW}) =~ s/(["\\])/\\$1/g;
       $fm = "title: Locked\npassword: \"$pw\"\n" . $fm;
       $body =~ s/\A\s*//;
       $body = "# $title\n\n$body" unless $body =~ /\A# /;
-      # a run of plain words from the body, for the leak check in build-site.sh
+      # Leak-check phrases (build-site.sh): every run of 20+ plain characters outside math, and
+      # the real title when it is more than the file name (names in URLs are public anyway).
       open my $s, ">>", $ENV{SAMPLES} or die;
+      print $s "$title\n" if $title ne $fname && length($title) >= 6;
+      my $in_math = 0;
       for my $line (split /\n/, $body) {
-        next if $line =~ /^#|\$/;
-        if ($line =~ /([A-Za-z][A-Za-z ,]{28,}[A-Za-z])/) { print $s substr($1, 0, 40), "\n"; last }
+        (my $l = $line) =~ s/^(?:>\s?)+//;
+        if ($l =~ /^\s*\$\$\s*$/) { $in_math = !$in_math; next }
+        next if $in_math;
+        $l =~ s/\$[^\$]*\$//g; $l =~ s/^#+\s*//;
+        print $s "$1\n" while $l =~ /([A-Za-z][A-Za-z ,]{18,}[A-Za-z])/g;
       }
       close $s;
       open my $out, ">", $file or die; print $out "---\n$fm---\n$body"; close $out;

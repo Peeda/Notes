@@ -49,7 +49,15 @@ _build/build.sh "notes/Misc/ODE Exam 1 Review.md" private/psets/MATH4320/HW1.md
     - an index whose body is empty stays unlocked;
     - the encrypted-pages plugin (order 900, after math) does the encryption;
     - fail closed: no password, no build;
-    - `build-site.sh` then greps `public/` for a phrase from each locked note (`_site/.locked-samples`) and deletes the output if one leaks;
+    - real names after unlocking: `stage.sh` writes `_site/.locked-titles.tsv` (slug, real title = frontmatter `title` or file name). `locked-titles.mjs` (run by `build-site.sh` after Quartz) encrypts it in the plugin's format (same password, 600000 iterations) to `public/static/locked-titles.enc`, writes `public/static/locked-titles.js`, and adds that script to every page's `<head>`.
+      - When the plugin has a password cached (`sessionStorage["encrypted-pages-passwords"]`), the script decrypts the list once into `sessionStorage["locked-titles-map"]` and renames every "Locked" link, the page heading and the tab title.
+      - It reruns on `nav`, `render` and DOM changes. It doesn't run under `--serve`, which never finishes the build.
+    - leak checks in `build-site.sh`, any failure deleting the output:
+      1. a control: a sentence from a public note must be found;
+      2. every 20+ character run of plain text and every real title from the locked notes (`_site/.locked-samples`) must be absent, skipping phrases that also occur in public notes;
+      3. every locked page's `<article>` must hold only the encrypted block.
+
+      Proven 2026-11-10 by breaking `passwordField` on purpose: the build flagged the leaks and deleted the output.
     - CI checks out Notes-private into `private/` with the deploy key;
     - a push to Notes-private doesn't trigger the site; run `gh workflow run site.yml -R Peeda/Notes`.
     - `ignorePatterns` must not list `psets` or `private`.

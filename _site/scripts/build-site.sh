@@ -51,19 +51,53 @@ n=$( (grep -rho 'class="typst-error"' "$SITE/public" 2>/dev/null || true) | wc -
 echo "build-site: $n formula(s) failed to compile (red in the page); log in $LOG"
 (( status == 0 )) || exit "$status"
 
-# Leak check: a phrase from each locked note (collected by stage.sh) must not appear anywhere in
-# the output (pages, search index, RSS, sitemap) as plain text. If one does, delete the output.
-leaks=0
+# Locked notes' real names: encrypted list + page script that shows them after an unlock
+PW="${SITE_PASSWORD:-}"
+[[ -z "$PW" && -f "$SITE/password" ]] && PW="$(head -n1 "$SITE/password")"
+SITE_PASSWORD="$PW" node "$SITE/scripts/locked-titles.mjs" "$SITE/.locked-titles.tsv" "$SITE/public" "$prefix"
+
+# Leak checks. On any failure the output is deleted, so nothing unsafe can be deployed.
+fail() { rm -rf "$SITE/public"; echo "build-site: $*; output deleted" >&2; exit 1; }
+
+# 1. Control: the search must find text that is supposed to be public, or a "no leak" below
+#    would prove nothing.
+pub_files=$(grep -rLE '^password:' "$Q/content" --include='*.md' | grep -v '/index\.md$' || true)
+control=$( (printf '%s\n' "$pub_files" | tr '\n' '\0' | xargs -0 grep -hoE '^[A-Za-z][A-Za-z ,]{18,}[A-Za-z]' 2>/dev/null || true) | head -1)
+[[ -n "$control" ]] || fail "leak check is broken: no public text to use as a control"
+grep -rqF -- "$control" "$SITE/public" ||
+  fail "leak check is broken: public text \"$control\" not found in the output"
+
+# 2. Every phrase of every locked note (stage.sh: .locked-samples) must be absent from the output
+#    (pages, search index, RSS, sitemap, scripts). Phrases that also occur in a public note are
+#    skipped: finding those proves nothing.
+leaks=0; checked=0
 while IFS= read -r phrase; do
   [[ -n "$phrase" ]] || continue
+  if [[ -n "$pub_files" ]] && printf '%s\n' "$pub_files" | tr '\n' '\0' | xargs -0 grep -qF -- "$phrase" 2>/dev/null; then
+    continue
+  fi
+  checked=$((checked + 1))
   if grep -rqF -- "$phrase" "$SITE/public"; then
     echo "build-site: LEAK: \"$phrase\" from a locked note is readable in $(grep -rlF -- "$phrase" "$SITE/public" | head -1)" >&2
     leaks=$((leaks + 1))
   fi
-done < "$SITE/.locked-samples"
-if (( leaks )); then
-  rm -rf "$SITE/public"
-  echo "build-site: $leaks locked note(s) leaked as plaintext; output deleted" >&2
-  exit 1
-fi
-echo "build-site: $(grep -c . "$SITE/.locked-samples" || true) locked note(s) checked, no plaintext in the output"
+done < <(sort -u "$SITE/.locked-samples")
+(( leaks == 0 )) || fail "$leaks phrase(s) from locked notes are readable"
+
+# 3. Every locked page must be encrypted: its <article> holds only the encrypted block. This also
+#    covers notes that are nearly all math and give few phrases.
+unenc=0; pages=0
+while IFS=$'\t' read -r slug _; do
+  [[ -n "$slug" ]] || continue
+  pages=$((pages + 1))
+  f="$SITE/public/$slug.html"
+  if [[ ! -f "$f" ]] || ! perl -0777 -ne '
+      my @a = /<article\b[^>]*>(.*?)<\/article>/sg; exit 1 unless @a;
+      for (@a) { s/<div class="encrypted-page[^"]*" data-encrypted="[A-Za-z0-9+\/=]+" data-iterations="\d+"><\/div>//; exit 1 if /\S/ }
+      exit 0' "$f"; then
+    echo "build-site: NOT ENCRYPTED: $slug" >&2; unenc=$((unenc + 1))
+  fi
+done < "$SITE/.locked-titles.tsv"
+(( unenc == 0 )) || fail "$unenc locked page(s) are not fully encrypted"
+
+echo "build-site: leak check ok: $pages locked page(s) encrypted, $checked phrase(s) absent, control phrase found"
