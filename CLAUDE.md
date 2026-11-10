@@ -62,6 +62,12 @@ _build/build.sh "notes/Misc/ODE Exam 1 Review.md" private/psets/MATH4320/HW1.md
     - a push to Notes-private doesn't trigger the site; run `gh workflow run site.yml -R Peeda/Notes`.
     - `ignorePatterns` must not list `psets` or `private`.
   - The copies are rewritten: `![](x.md#^id)` → `![[x#^id]]`; result titles get their kind, "Lemma B.1 (Title)"; folders without an `index.md` get one with a title; `type: pset` notes are dropped.
+  - **Dates:** the rewrites (and a fresh CI checkout) would date every note "now", so `stage.sh` resets each copy's file time last, from the first that applies:
+    - a `YYYY-MM-DD` file name;
+    - its last commit in its own repo;
+    - the source file's mtime, for uncommitted edits.
+
+    A frontmatter `date:` still wins (`created-modified-date` priority: frontmatter, filesystem). CI checks out both repos with `fetch-depth: 0` for this.
 - **Math:** Quartz's `latex` plugin with `renderEngine: typst`, through rehype-typst 0.7.0, which runs Typst 0.14.2, the same as Typst Mate.
   - rehype-typst has no preamble option, so `typst-preamble.mjs` monkeypatches its `NodeCompiler.compile` through `node --import`. It prepends `_site/preamble.typ` to every formula.
   - The preamble is `macros.typ`, every tag file and every `definitions:` entry, combined. `stage.sh` fails if two of them define the same name.

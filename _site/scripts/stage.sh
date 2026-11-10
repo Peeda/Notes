@@ -116,6 +116,31 @@ find "$C" -type d -print0 | while IFS= read -r -d '' d; do
   printf -- '---\ntitle: "%s"\n---\n' "$(basename "$d")" > "$d/index.md"
 done
 
+# Dates. The rewrites above (and a fresh CI checkout) leave every copy dated "now", and Quartz
+# falls back to the file date for notes without a `date:` in frontmatter. Give each copy its
+# real date: a YYYY-MM-DD file name (meetings), else its last commit in its own repo (notes/ in
+# the public repo, private/ in the private one), else the source file's modified time.
+# CI needs full history for this (fetch-depth: 0 in site.yml).
+n_dated=0
+while IFS= read -r -d '' f; do
+  rel="${f#"$C"/}"; top="${rel%%/*}"
+  if [[ -d "$P_DIR/$top" && ! -e "$VAULT/notes/$top" ]]; then repo="$P_DIR"; src="$P_DIR/$rel"
+  else repo="$VAULT"; src="$VAULT/notes/$rel"; fi
+  [[ -f "$src" ]] || continue
+  ts=""
+  if [[ "$(basename "$f")" =~ ^([0-9]{4})-([0-9]{2})-([0-9]{2}) ]]; then
+    ts=$(perl -MTime::Local -e 'print timelocal(0,0,12,$ARGV[2],$ARGV[1]-1,$ARGV[0])' \
+           "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]#0}" "${BASH_REMATCH[3]#0}")
+  fi
+  if [[ -z "$ts" ]] && git -C "$repo" rev-parse --git-dir >/dev/null 2>&1; then
+    if [[ -z "$(git -C "$repo" status --porcelain -- "$src" 2>/dev/null)" ]]; then
+      ts=$(git -C "$repo" log -1 --format=%ct -- "$src" 2>/dev/null || true)
+    fi
+  fi
+  [[ -n "$ts" ]] || ts=$(perl -e 'print((stat shift)[9])' "$src")
+  perl -e 'utime $ARGV[0], $ARGV[0], $ARGV[1] or die' "$ts" "$f" && n_dated=$((n_dated + 1))
+done < <(find "$C" -name '*.md' -print0)
+
 # Preamble: vault macros, every tag file, every frontmatter `definitions:` entry
 P="$SITE/preamble.typ"
 {
@@ -140,4 +165,4 @@ if [[ -n "$dups" ]]; then
   echo "stage: macro names defined twice in the combined preamble (tag files clash):" >&2
   echo "$dups" >&2; exit 1
 fi
-echo "stage: $(find "$C" -name '*.md' | wc -l | tr -d ' ') notes ($n_locked locked), preamble $(wc -l < "$P" | tr -d ' ') lines"
+echo "stage: $(find "$C" -name '*.md' | wc -l | tr -d ' ') notes ($n_locked locked, $n_dated dated), preamble $(wc -l < "$P" | tr -d ' ') lines"

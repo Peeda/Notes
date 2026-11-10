@@ -30,7 +30,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # Full history (fetch-depth: 0): stage.sh dates each note by its last commit
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Check out private notes
         uses: actions/checkout@v4
@@ -39,6 +42,7 @@ jobs:
           ssh-key: ${{ secrets.PRIVATE_NOTES_KEY }}
           path: private
           persist-credentials: false
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:

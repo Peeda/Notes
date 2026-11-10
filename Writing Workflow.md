@@ -72,6 +72,7 @@ _site/scripts/build-site.sh
 - **Macros:** all of them reach the site through `_site/preamble.typ`: `macros.typ`, every tag file and every `definitions:` entry, combined into one preamble that comes before every formula. So two tag files must not define the same name. The build stops and names the clash if they do.
 - **Errors:** a formula that fails to compile shows up red on its page instead of breaking the build. The build prints how many there were.
 - **Embeds:** `![](note.md#^id)` becomes a Quartz transclusion, so a proof page shows its statement.
+- **Dates** on the site: a note's `date:` if it has one; otherwise the date in its file name (meetings), its last commit, or, for uncommitted edits, when you last saved it.
 - **Publishing:** pushing to `main` publishes the site to https://peeda.github.io/Notes. The GitHub Action `.github/workflows/site.yml` runs the same two scripts and deploys `_site/public`. It runs only when `notes/`, `attachments/`, the macros or `_site/scripts/` change, and it can also be started by hand from the repo's Actions tab. It publishes what is committed, not what is on disk.
 
 **Private notes.** `private/` holds notes that stay private: `private/psets/` and `private/Graph_SSD_Meetings/`. It's its own git repo, github.com/Peeda/Notes-private (private), and the public repo ignores it. Commit and push in it as usual (`cd private`, then `git commit` and `git push`). Any new folder you add under `private/` is private and locked too.
