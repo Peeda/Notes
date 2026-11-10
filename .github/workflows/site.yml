@@ -29,6 +29,10 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # dates on the site are formatted in this zone (the runner is UTC, so evening commits
+    # would show the next day)
+    env:
+      TZ: America/New_York
     steps:
       # Full history (fetch-depth: 0): stage.sh dates each note by its last commit
       - uses: actions/checkout@v4

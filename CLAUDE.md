@@ -67,7 +67,7 @@ _build/build.sh "notes/Misc/ODE Exam 1 Review.md" private/psets/MATH4320/HW1.md
     - its last commit in its own repo;
     - the source file's mtime, for uncommitted edits.
 
-    A frontmatter `date:` still wins (`created-modified-date` priority: frontmatter, filesystem). CI checks out both repos with `fetch-depth: 0` for this.
+    A frontmatter `date:` still wins (`created-modified-date` priority: frontmatter, filesystem). CI checks out both repos with `fetch-depth: 0` for this, and runs with `TZ: America/New_York` so dates match the user's day.
 - **Math:** Quartz's `latex` plugin with `renderEngine: typst`, through rehype-typst 0.7.0, which runs Typst 0.14.2, the same as Typst Mate.
   - rehype-typst has no preamble option, so `typst-preamble.mjs` monkeypatches its `NodeCompiler.compile` through `node --import`. It prepends `_site/preamble.typ` to every formula.
   - The preamble is `macros.typ`, every tag file and every `definitions:` entry, combined. `stage.sh` fails if two of them define the same name.
