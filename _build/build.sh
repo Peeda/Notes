@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # usage: _build/build.sh note.md [note2.md ...]
 # Writes each PDF under _pdf/ at the vault root, mirroring the vault layout
-# (psets/MATH4320/HW1.md -> _pdf/psets/MATH4320/HW1.pdf). _pdf/ is gitignored.
+# (private/psets/MATH4320/HW1.md -> _pdf/private/psets/MATH4320/HW1.pdf). _pdf/ is gitignored.
 # KEEP_TYP=1 keeps the intermediate Typst source next to the PDF (.<note>.typ).
 set -euo pipefail
 VAULT="$(cd "$(dirname "$0")/.." && pwd)"

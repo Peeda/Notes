@@ -11,24 +11,24 @@ This folder is an Obsidian vault of math notes. Math is written in **Typst synta
 | Path | What |
 |---|---|
 | `notes/` | course notes and plain notes (`.md`) |
-| `psets/` | problem sets. **A separate, private git repo**, ignored by the public one |
+| `private/` | private notes: `psets/` (problem sets) and `Graph_SSD_Meetings/`. **A separate, private git repo** (github.com/Peeda/Notes-private), ignored by the public one; on the website its notes are password-locked |
 | `misc/` | the user's personal notes: never read or touch (see above) |
 | `typst/` | standalone `.typ` documents (talk, bibliography, Spurious Notes, whose content now lives in `notes/Spurious-XOR/`), compiled with `typst compile` directly. Their PDFs are tracked |
 | `_build/` | `build.sh`, `obsidian.lua` (Pandoc filter), `template.typ`, `envs.typ` (ctheorems environments), `macros.typ` (vault-wide macros), `tags/<tag>.typ` (per-course macros) |
 | `_templates/` | Obsidian Templates plugin: Course index, Lecture, Research index, Meeting, Problem set, Problem, Proof, Book index, Chapter, Paper index, Paper proof, Article |
 | `_site/` | the website (Quartz v5). Only `_site/scripts/` is tracked; Quartz itself, the staged content and `public/` are gitignored |
-| `_pdf/` | all build output, mirroring the vault (psets too, under `_pdf/psets/`), gitignored |
+| `_pdf/` | all build output, mirroring the vault (private notes too, under `_pdf/private/`), gitignored |
 | `examples/` | gitignored demo course, pset and book; `_build/tags/example-course.typ` is gitignored too |
 | `.obsidian/` | vault config: `snippets/rice.css` (theme and editor spacing fixes) and `plugins/build-pdf/` (the Build PDF command) are tracked; other plugins, including Typst Mate and its settings, are gitignored |
 
 ## Building
 
 ```bash
-_build/build.sh "notes/Misc/ODE Exam 1 Review.md" psets/MATH4320/HW1.md
+_build/build.sh "notes/Misc/ODE Exam 1 Review.md" private/psets/MATH4320/HW1.md
 ```
 
-- Output: `_pdf/<same path>.pdf` at the vault root, psets included. `KEEP_TYP=1` keeps the generated `.<name>.typ` next to the PDF.
-- Build everything: `find notes psets examples -name '*.md' -not -path '*/_pdf/*' -print0 | xargs -0 _build/build.sh`.
+- Output: `_pdf/<same path>.pdf` at the vault root, private notes included. `KEEP_TYP=1` keeps the generated `.<name>.typ` next to the PDF.
+- Build everything: `find notes private examples -name '*.md' -not -path '*/_pdf/*' -print0 | xargs -0 _build/build.sh`.
 - `_build/build-current.sh <note>` builds the note's course, book, research project or paper if its folder has a `type: course`, `book`, `research` or `paper` index, or, for a note in `Proofs/`, its parent folder has a `type: paper` one (otherwise the note itself), and opens the PDF. Obsidian runs it through the vault-local plugin `.obsidian/plugins/build-pdf/` (command "Build PDF", Cmd+Shift+B), which is tracked in git and adds Homebrew's bin folders to PATH; apps started from the Dock don't have them, so `pandoc`/`typst` would not be found. `NO_OPEN=1` skips opening.
 - `obsidian.lua` runs as passes:
   1. Expand embeds. A `type: course`, `book` or `research` index with no embeds includes every sibling note whose name starts with a number, in numeric order (dated `YYYY-MM-DD` meeting names sort by the tie-break on the name); for courses and books the number sets the lecture or chapter number (`#counter(heading).update`). A `type: paper` index keeps its body and appends a `# Proofs` appendix: every `Proofs/<number> <name>.md` in the paper's order, under copies of the overview's `# B …` section headings. Each embedded note gets a `<note-…>` label, so a link to a whole note becomes `#link`. An embed of a block (`![](note.md#^id)`) restates that callout in the PDF (a copy without its `^id`s, so labels stay unique), the way course notes restate a theorem above its proof; other block embeds are dropped. Frontmatter `tags:` becomes `#import "/_build/tags/<tag>.typ"`, and `definitions:` becomes `#let` lines.
@@ -44,6 +44,15 @@ _build/build.sh "notes/Misc/ODE Exam 1 Review.md" psets/MATH4320/HW1.md
 
 - **What it publishes:** `stage.sh` copies only `notes/` (`.md` and images), as the site root, and `attachments/` into `_site/.quartz/content`. Links climbing to `attachments/` lose one `../`. `ignorePatterns` must not list `misc`: the public `notes/Misc` sits at the root.
   - It must sit inside Quartz's own git repo: Quartz skips gitignored files, and the vault ignores `_site/`.
+  - **Private notes:**
+    - each folder of `private/` is staged at the site root and every note in it is locked: `stage.sh` adds `password:` (from `SITE_PASSWORD`, else `_site/password`) and `title: Locked`, and moves the real title into the body as a `# ` heading;
+    - an index whose body is empty stays unlocked;
+    - the encrypted-pages plugin (order 900, after math) does the encryption;
+    - fail closed: no password, no build;
+    - `build-site.sh` then greps `public/` for a phrase from each locked note (`_site/.locked-samples`) and deletes the output if one leaks;
+    - CI checks out Notes-private into `private/` with the deploy key;
+    - a push to Notes-private doesn't trigger the site; run `gh workflow run site.yml -R Peeda/Notes`.
+    - `ignorePatterns` must not list `psets` or `private`.
   - The copies are rewritten: `![](x.md#^id)` → `![[x#^id]]`; result titles get their kind, "Lemma B.1 (Title)"; folders without an `index.md` get one with a title; `type: pset` notes are dropped.
 - **Math:** Quartz's `latex` plugin with `renderEngine: typst`, through rehype-typst 0.7.0, which runs Typst 0.14.2, the same as Typst Mate.
   - rehype-typst has no preamble option, so `typst-preamble.mjs` monkeypatches its `NodeCompiler.compile` through `node --import`. It prepends `_site/preamble.typ` to every formula.
@@ -140,9 +149,10 @@ The user cares about how the PDFs look. Keep changes within this style and check
 
 - **Two repos:**
   - the public repo is github.com/Peeda/Notes;
-  - `psets/` is a nested private repo, with no remote yet.
+  - `private/` is a nested private repo, github.com/Peeda/Notes-private: `psets/` and `Graph_SSD_Meetings/`, with their history. It was built on 2026-11-10 from the old `psets/` repo plus the meetings' history from the public repo.
 
-  Never commit pset content or pset PDFs to the public repo. Check `git ls-files` before committing.
+  Never commit private content or its PDFs to the public repo. Check `git ls-files` before committing. `Graph_SSD_Meetings` was scrubbed from the public repo's history with `git filter-repo` (force-pushed). Don't reintroduce it.
+- **Site secrets** (Peeda/Notes, Actions): `PRIVATE_NOTES_KEY`, a read-only deploy key on Notes-private, and `SITE_PASSWORD`. Only the user handles their values.
 - **PDFs:** they are untracked everywhere except under `typst/`.
 - **Pushing:** don't push either repo unless the user asks.
 - **Commits:** the user prefers few commits. While the latest commit is unpushed, fold follow-up tweaks into it with `git commit --amend` unless asked for a separate commit.

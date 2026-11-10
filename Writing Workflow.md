@@ -9,7 +9,7 @@ The vault holds six kinds of documents:
 | Kind | Where | Becomes |
 |---|---|---|
 | **Course notes** | `notes/<Course>/`, one note per lecture plus an index | one PDF for the course, with lectures, theorems, proofs and references |
-| **Problem sets** | `psets/<Course>/HW<n>.md`, one note per assignment | a homework PDF: header, numbered problems, solutions |
+| **Problem sets** | `private/psets/<Course>/HW<n>.md`, one note per assignment | a homework PDF: header, numbered problems, solutions |
 | **Book exercises** | `notes/<Book>/`, one note per chapter plus an index | one PDF of your solutions, chapter by chapter, numbered as in the book |
 | **Research meetings** | `notes/<Project>/`, one note per meeting, named by its date, plus an index | one PDF for the project, a section per meeting ("October 27th meeting") |
 | **Paper notes** | `notes/<Paper>/`, an overview note plus `Proofs/`, one note per proof | one PDF: a section-by-section overview with the paper's numbers, then the proofs |
@@ -29,7 +29,7 @@ _build/build.sh "notes/MATH 4107/MATH 4107 Notes.md"
 That's the whole process, one note at a time. Other forms:
 
 ```bash
-_build/build.sh psets/MATH4107/HW1.md psets/MATH4107/HW2.md
+_build/build.sh private/psets/MATH4107/HW1.md private/psets/MATH4107/HW2.md
 ```
 
 ```bash
@@ -37,7 +37,7 @@ find notes -name '*.md' -exec _build/build.sh {} +
 ```
 
 - The second form builds several notes; the third builds every note under `notes/`.
-- **Where PDFs go:** PDFs never land next to your notes. They go to `_pdf/`, mirroring the vault: `notes/MATH 4107/MATH 4107 Notes.md` becomes `_pdf/notes/MATH 4107/MATH 4107 Notes.pdf`, and `psets/MATH4107/HW1.md` becomes `_pdf/psets/MATH4107/HW1.pdf`. `_pdf/` is ignored by git, so pset PDFs never reach the public repo.
+- **Where PDFs go:** PDFs never land next to your notes. They go to `_pdf/`, mirroring the vault: `notes/MATH 4107/MATH 4107 Notes.md` becomes `_pdf/notes/MATH 4107/MATH 4107 Notes.pdf`, and `private/psets/MATH4107/HW1.md` becomes `_pdf/private/psets/MATH4107/HW1.pdf`. `_pdf/` is ignored by git, so pset PDFs never reach either repo.
 - **Debugging:** run with `KEEP_TYP=1` to keep the generated Typst source as `.<name>.typ` next to the PDF.
 
 **From Obsidian:** press **Cmd+Shift+B**, or run **Build PDF** from the command palette (Cmd+P). It comes from the vault's own small plugin, `.obsidian/plugins/build-pdf/`. It saves the note and runs `_build/build-current.sh` on it, which builds the note's course, book, research project or paper (for a lecture, chapter, meeting, proof or index) or the note itself, and opens the PDF. A notice says when it's done, or shows the error if the build fails. To enable it the first time, go to Settings → Community plugins and turn on "Build PDF". The hotkey can be changed under Settings → Hotkeys.
@@ -68,11 +68,24 @@ _site/scripts/build-site.sh
 
 - `setup.sh` runs once. It installs a pinned Quartz into `_site/.quartz`, with its Typst renderer at Typst 0.14.2, the same version Typst Mate runs. Math that renders in Obsidian therefore renders on the site.
 - `build-site.sh` writes the site to `_site/public`. With `--serve`, it previews at http://localhost:8080.
-- **What gets published:** `stage.sh` copies only `notes/` (Markdown and images, no PDFs) and `attachments/` into `_site/.quartz/content`. `notes/` becomes the site root, so a course is at `peeda.github.io/Notes/MATH4320/...`, and links into `attachments/` are adjusted to match. It also drops any `type: pset` note. In the copies, a titled result reads as in the PDFs, "Lemma B.1 (Title)". Nothing else in the vault is read.
+- **What gets published:** `stage.sh` copies only `notes/` (Markdown and images, no PDFs) and `attachments/` into `_site/.quartz/content`. `notes/` becomes the site root, so a course is at `peeda.github.io/Notes/MATH4320/...`, and links into `attachments/` are adjusted to match. It also drops any `type: pset` note there. In the copies, a titled result reads as in the PDFs, "Lemma B.1 (Title)". Nothing else in the vault is read.
 - **Macros:** all of them reach the site through `_site/preamble.typ`: `macros.typ`, every tag file and every `definitions:` entry, combined into one preamble that comes before every formula. So two tag files must not define the same name. The build stops and names the clash if they do.
 - **Errors:** a formula that fails to compile shows up red on its page instead of breaking the build. The build prints how many there were.
 - **Embeds:** `![](note.md#^id)` becomes a Quartz transclusion, so a proof page shows its statement.
 - **Publishing:** pushing to `main` publishes the site to https://peeda.github.io/Notes. The GitHub Action `.github/workflows/site.yml` runs the same two scripts and deploys `_site/public`. It runs only when `notes/`, `attachments/`, the macros or `_site/scripts/` change, and it can also be started by hand from the repo's Actions tab. It publishes what is committed, not what is on disk.
+
+**Private notes.** `private/` holds notes that stay private: `private/psets/` and `private/Graph_SSD_Meetings/`. It's its own git repo, github.com/Peeda/Notes-private (private), and the public repo ignores it. Commit and push in it as usual (`cd private`, then `git commit` and `git push`). Any new folder you add under `private/` is private and locked too.
+
+- **On the website,** each folder of `private/` appears at the root (`peeda.github.io/Notes/psets/...`), but every note in it is encrypted with one site password. Locked notes show as "Locked" with a padlock; after the password, the real title and content appear. The password is remembered until the browser closes. File and folder names stay visible in URLs.
+- **An index note** whose body is empty (only frontmatter) stays unlocked, so its folder keeps its name in the explorer.
+- **The password** is the GitHub secret `SITE_PASSWORD` for the site build, and `_site/password` (one line, gitignored) for local builds. Without it the build stops rather than publish private notes as plain text. After each build, it also checks that no sentence from a locked note is readable anywhere in the output, and stops if one is.
+- **Updating the site after editing private notes:** a push to the private repo doesn't trigger the site build. Start it from the Actions tab of Peeda/Notes ("Website" → "Run workflow"), or with:
+
+  ```bash
+  gh workflow run site.yml -R Peeda/Notes
+  ```
+- **Changing the password:** `gh secret set SITE_PASSWORD -R Peeda/Notes`, update `_site/password`, then run the workflow.
+- **How strong it is:** the encrypted pages are public files, so a weak password could be guessed offline. Use a long one.
 
 ## 2. Writing basics (all kinds)
 
@@ -204,7 +217,7 @@ See `examples/course-notes/` for all of this in five short lectures.
 
 ## 4. Problem sets
 
-One note per assignment (template: *Problem set*), in the private `psets/` repo:
+One note per assignment (template: *Problem set*), in `private/psets/`, part of the private repo (see "Private notes" in 1b):
 
 ```markdown
 ---
@@ -226,7 +239,7 @@ tags: [math4107]
 - **Solutions:** write them in the open *Solution.* form, so long solutions keep live preview. Parts can be a list (`1.`, `2.`) inside the problem and inside the solution.
 - **PDF layout:** a header with the title, course, author and date, plus a running header with your name and the assignment on later pages. Headings are unnumbered.
 - **Macros:** tag the pset with the course tag to share the course's macros.
-- **Building:** `_build/build.sh psets/MATH4107/HW1.md` writes `_pdf/psets/MATH4107/HW1.pdf`.
+- **Building:** `_build/build.sh private/psets/MATH4107/HW1.md` writes `_pdf/private/psets/MATH4107/HW1.pdf`.
 
 See `examples/problem-set/HW1.md`.
 
@@ -272,7 +285,7 @@ See `examples/book-exercises/`.
 
 For weekly meetings on a research project: laid out and styled like course notes, but each meeting is titled by its date instead of a lecture number.
 
-**Layout:** one folder per project, `notes/<Project>/`: an index note, and one note per meeting named by its date, `YYYY-MM-DD.md` (`2026-10-27.md`), so meetings sort in order.
+**Layout:** one folder per project, `notes/<Project>/`, or `private/<Project>/` to keep it private (see "Private notes" in 1b): an index note, and one note per meeting named by its date, `YYYY-MM-DD.md` (`2026-10-27.md`), so meetings sort in order.
 
 **Index note** (template: *Research index*):
 
@@ -372,7 +385,7 @@ After inserting one, fill in `course:` and `tags:`, and drop the number prefix f
 2. Create `_build/tags/<course>.typ` and set `tags: [<course>]` in the index and every lecture.
 3. Each lecture: add `NN Topic.md` (*Lecture*). The build picks it up automatically.
 4. Give `^id`s to results you'll cite, and reference them with `[Theorem](…#^id)`.
-5. Problem sets: `psets/<Course>/HW<n>.md` from *Problem set*, with the same tag.
+5. Problem sets: `private/psets/<Course>/HW<n>.md` from *Problem set*, with the same tag.
 6. Build the index (and each pset) and look over the PDFs in `_pdf/`.
 
 A book works the same way: *Book index* and *Chapter* instead of *Course index* and *Lecture*, with each chapter note named by the book's chapter number. So does a research project: *Research index* and *Meeting*, with each meeting note named by its date.

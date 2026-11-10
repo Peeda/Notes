@@ -1,25 +1,55 @@
 #!/usr/bin/env bash
-# Stage the public part of the vault for Quartz: copy notes/ (Markdown and images only) as the
-# site root, and attachments/ as attachments/, into _site/.quartz/content, and write _site/preamble.typ, the Typst preamble prepended to
-# every formula. Nothing else in the vault is read (misc/, psets/, typst/, examples/ never are).
+# Stage the vault for Quartz into _site/.quartz/content:
+#   - notes/ (Markdown and images only) as the site root, attachments/ as attachments/;
+#   - each folder of private/ (the private repo: psets/, Graph_SSD_Meetings/) at the root too,
+#     every note in it password-locked (see "Lock private notes" below);
+# and write _site/preamble.typ, the Typst preamble prepended to every formula.
+# Nothing else in the vault is read (misc/, typst/, examples/ never are).
 set -euo pipefail
 SITE="$(cd "$(dirname "$0")/.." && pwd)"
 VAULT="$(cd "$SITE/.." && pwd)"
 C="$SITE/.quartz/content"   # inside Quartz's own git repo: Quartz skips gitignored files, and the vault ignores _site/
+P_DIR="$VAULT/private"
+SAMPLES="$SITE/.locked-samples"   # phrases from locked notes; build-site.sh checks none reach public/
 
-rm -rf "$C"; mkdir -p "$C"
-img='--include=*.png --include=*.jpg --include=*.jpeg --include=*.gif --include=*.svg --include=*.webp'
-# shellcheck disable=SC2086
-rsync -a --prune-empty-dirs --include='*/' --include='*.md' $img --exclude='*' "$VAULT/notes/" "$C/"
+rm -rf "$C"; mkdir -p "$C"; : > "$SAMPLES"
+md_filter=(--prune-empty-dirs --include='*/' --include='*.md' --include='*.png' --include='*.jpg'
+           --include='*.jpeg' --include='*.gif' --include='*.svg' --include='*.webp' --exclude='*')
+rsync -a "${md_filter[@]}" "$VAULT/notes/" "$C/"
 [[ -d "$VAULT/attachments" ]] && rsync -a "$VAULT/attachments/" "$C/attachments/"
+
+# Private folders, staged next to the public ones (locked further down)
+locked=()
+if [[ -d "$P_DIR" ]]; then
+  for d in "$P_DIR"/*/; do
+    [[ -d "$d" ]] || continue
+    name="$(basename "$d")"
+    if [[ -e "$C/$name" ]]; then
+      echo "stage: private/$name clashes with notes/$name; rename one of them" >&2; exit 1
+    fi
+    rsync -a "${md_filter[@]}" "$d" "$C/$name/"
+    [[ -d "$C/$name" ]] && locked+=("$C/$name")
+  done
+fi
+
+# The site password: $SITE_PASSWORD (CI secret), else _site/password. Fail closed: without one,
+# private notes would go out as plaintext.
+PW="${SITE_PASSWORD:-}"
+[[ -z "$PW" && -f "$SITE/password" ]] && PW="$(head -n1 "$SITE/password")"
+if (( ${#locked[@]} )) && [[ -z "$PW" ]]; then
+  echo "stage: private/ has notes but no password: set SITE_PASSWORD or write _site/password" >&2
+  exit 1
+fi
 
 # Home page, unless notes/index.md exists
 [[ -e "$C/index.md" ]] || printf -- '---\ntitle: Notes\n---\n' > "$C/index.md"
 
 # Per-note rewrites on the copies
 find "$C" -name '*.md' -print0 | while IFS= read -r -d '' f; do
-  # psets never go public, even if one lands in notes/ by mistake
-  if head -20 "$f" | grep -qE '^type: *pset'; then rm "$f"; continue; fi
+  # psets outside private/ never go public, even if one lands in notes/ by mistake
+  in_locked=0
+  for l in ${locked[@]+"${locked[@]}"}; do [[ "$f" == "$l"/* ]] && in_locked=1; done
+  if (( ! in_locked )) && head -20 "$f" | grep -qE '^type: *pset'; then rm "$f"; continue; fi
   # notes/ is the site root, one level up: ../../attachments/x.png -> ../attachments/x.png
   perl -i -pe 's{(\]\(|\[\[)((?:\.\./)+)attachments/}{$1 . substr($2, 3) . "attachments/"}ge' "$f"
   # ![](../Proof%20Overview.md#^b5) ->![[../Proof Overview#^b5]] so Quartz transcludes the block
@@ -31,6 +61,41 @@ find "$C" -name '*.md' -print0 | while IFS= read -r -d '' f; do
     if ($t =~ /^\Q$K\E\b/i) { "$q\[!$k\]$fold $t\n" }
     elsif ($t =~ /^((?:[A-Z]|\d+)(?:\.\d+)+|\d+)\.?(?:\s+(.*))?$/) { "$q\[!$k\]$fold $K $1" . (defined $2 && length $2 ? " ($2)" : "") . "\n" }
     else { "$q\[!$k\]$fold $K ($t)\n" } }ge' "$f"
+done
+
+# Lock private notes: the encrypted-pages plugin encrypts any page with a `password:` field.
+# Each note gets the password and the title "Locked"; its real title moves into the body as a
+# "# " heading (encrypted with the rest), unless the body already opens with one. A note with an
+# empty body (an index that only carries a title) stays unlocked, so its folder keeps its name.
+n_locked=0
+for l in ${locked[@]+"${locked[@]}"}; do
+  while IFS= read -r -d '' f; do
+    PW="$PW" SAMPLES="$SAMPLES" perl -e '
+      my $file = shift;
+      open my $in, "<", $file or die; my $src = do { local $/; <$in> }; close $in;
+      my ($fm, $body) = $src =~ /\A---\n(.*?\n)---\n(.*)\z/s ? ($1, $2) : ("", $src);
+      exit 0 unless $body =~ /\S/;   # empty body: leave the file as it is
+      my ($title) = $fm =~ /^title:\s*(.*?)\s*$/m;
+      $title = "" unless defined $title;
+      $title =~ s/^(["\x27])(.*)\1$/$2/;
+      if ($title eq "") { ($title = $file) =~ s{.*/}{}; $title =~ s/\.md$//; }
+      $fm =~ s/^title:.*\n//mg; $fm =~ s/^password:.*\n//mg;
+      (my $pw = $ENV{PW}) =~ s/(["\\])/\\$1/g;
+      $fm = "title: Locked\npassword: \"$pw\"\n" . $fm;
+      $body =~ s/\A\s*//;
+      $body = "# $title\n\n$body" unless $body =~ /\A# /;
+      # a run of plain words from the body, for the leak check in build-site.sh
+      open my $s, ">>", $ENV{SAMPLES} or die;
+      for my $line (split /\n/, $body) {
+        next if $line =~ /^#|\$/;
+        if ($line =~ /([A-Za-z][A-Za-z ,]{28,}[A-Za-z])/) { print $s substr($1, 0, 40), "\n"; last }
+      }
+      close $s;
+      open my $out, ">", $file or die; print $out "---\n$fm---\n$body"; close $out;
+      exit 3;   # tells the shell this note was locked
+    ' "$f" && continue || [[ $? == 3 ]] || { echo "stage: failed to lock $f" >&2; exit 1; }
+    n_locked=$((n_locked + 1))
+  done < <(find "$l" -name '*.md' -print0)
 done
 
 # Folders without an index.md get one, so the explorer and folder pages show a plain name
@@ -49,7 +114,7 @@ P="$SITE/preamble.typ"
     printf '\n// ---- %s\n' "$(basename "$t")"; cat "$t"
   done
   printf '\n// ---- definitions:\n'
-  find "$VAULT/notes" -name '*.md' -print0 | xargs -0 awk '
+  find "$VAULT/notes" $( [[ -d "$P_DIR" ]] && echo "$P_DIR" ) -name '*.md' -print0 | xargs -0 awk '
     FNR==1 { fm=0; defs=0 }
     /^---$/ { fm++; next }
     fm==1 && /^definitions:/ { defs=1; next }
@@ -63,4 +128,4 @@ if [[ -n "$dups" ]]; then
   echo "stage: macro names defined twice in the combined preamble (tag files clash):" >&2
   echo "$dups" >&2; exit 1
 fi
-echo "stage: $(find "$C" -name '*.md' | wc -l | tr -d ' ') notes, preamble $(wc -l < "$P" | tr -d ' ') lines"
+echo "stage: $(find "$C" -name '*.md' | wc -l | tr -d ' ') notes ($n_locked locked), preamble $(wc -l < "$P" | tr -d ' ') lines"

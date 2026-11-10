@@ -9,11 +9,10 @@ configuration:
   analytics: null
   locale: en-US
   baseUrl: peeda.github.io/Notes
-  # content/ is a staged copy (stage.sh) of notes/ and attachments/ only; this is a backstop.
+  # content/ is a staged copy (stage.sh) of notes/, attachments/ and the locked private/ folders;
+  # these are a backstop. No "psets" or "private": psets/ is staged (locked) on purpose.
   # No "misc": the public notes/Misc folder sits at the root now.
   ignorePatterns:
-    - psets
-    - private
     - _build
     - _templates
     - .obsidian

@@ -1,5 +1,8 @@
 # Build the Quartz website from notes/ and publish it to GitHub Pages (peeda.github.io/Notes).
 # See "1b. The website" in Writing Workflow.md. Needs Settings -> Pages -> Source: GitHub Actions.
+# Private notes come from Peeda/Notes-private (deploy key secret PRIVATE_NOTES_KEY) and are
+# encrypted with secret SITE_PASSWORD. A push to the private repo doesn't trigger this: run it
+# from the Actions tab or with `gh workflow run site.yml -R Peeda/Notes`.
 name: Website
 
 on:
@@ -29,6 +32,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check out private notes
+        uses: actions/checkout@v4
+        with:
+          repository: Peeda/Notes-private
+          ssh-key: ${{ secrets.PRIVATE_NOTES_KEY }}
+          path: private
+          persist-credentials: false
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -46,6 +57,8 @@ jobs:
         run: _site/scripts/setup.sh
 
       - name: Build site
+        env:
+          SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
         run: _site/scripts/build-site.sh
 
       - uses: actions/upload-pages-artifact@v3

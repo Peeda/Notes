@@ -49,4 +49,21 @@ npx quartz build -d "$Q/content" -o "$SITE/public" "$@" 2>&1 | tee "$LOG"
 status=${PIPESTATUS[0]}
 n=$( (grep -rho 'class="typst-error"' "$SITE/public" 2>/dev/null || true) | wc -l | tr -d ' ')
 echo "build-site: $n formula(s) failed to compile (red in the page); log in $LOG"
-exit "$status"
+(( status == 0 )) || exit "$status"
+
+# Leak check: a phrase from each locked note (collected by stage.sh) must not appear anywhere in
+# the output (pages, search index, RSS, sitemap) as plain text. If one does, delete the output.
+leaks=0
+while IFS= read -r phrase; do
+  [[ -n "$phrase" ]] || continue
+  if grep -rqF -- "$phrase" "$SITE/public"; then
+    echo "build-site: LEAK: \"$phrase\" from a locked note is readable in $(grep -rlF -- "$phrase" "$SITE/public" | head -1)" >&2
+    leaks=$((leaks + 1))
+  fi
+done < "$SITE/.locked-samples"
+if (( leaks )); then
+  rm -rf "$SITE/public"
+  echo "build-site: $leaks locked note(s) leaked as plaintext; output deleted" >&2
+  exit 1
+fi
+echo "build-site: $(grep -c . "$SITE/.locked-samples" || true) locked note(s) checked, no plaintext in the output"

@@ -1,5 +1,7 @@
 .DS_Store
-psets/
+# private notes: a separate private repo (github.com/Peeda/Notes-private)
+/private/
+/psets/
 *.pdf
 !typst/**/*.pdf
 .*.typ
